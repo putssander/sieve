@@ -1,0 +1,14 @@
+# Demo projects and their builder use private project data: keep local
+site/demo/
+demo/
+srp/build_demo.py
+
+# Job / results files may contain paper text
+job-*.json
+*.results.json
+
+.venv/
+__pycache__/
+*.pyc
+.DS_Store
+.env

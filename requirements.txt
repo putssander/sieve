@@ -1,0 +1,13 @@
+# Demo builder (reads the student workbooks)
+openpyxl>=3.1
+# Runner: OpenAI API and any OpenAI-compatible server (Ollama, LM Studio, mlx_lm.server, vLLM)
+openai>=1.40
+
+# Optional, Colab GPU / Linux CUDA: python -m srp run job.json --backend hf
+# transformers>=4.51
+# torch>=2.3
+# accelerate>=0.30
+# bitsandbytes>=0.43     # --4bit on a T4
+
+# Optional, Apple silicon (M1-M4): serve a local model with an OpenAI-compatible API
+# mlx-lm>=0.20           # mlx_lm.server --model mlx-community/Qwen3-8B-4bit --port 8080
