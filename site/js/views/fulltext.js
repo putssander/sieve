@@ -25,7 +25,7 @@ export async function render(m, ctx) {
     row(field("Records", select(scope, [["tainc", "included or unclear after title/abstract screening (or not screened)"], ["all", "all unique records"]], v => { sessionStorage.setItem("ft-scope", v); ctx.rerender(); }))),
     h("div", { class: "stats" }, h("div", { class: "stat" }, h("b", {}, `${got.length}/${recs.length}`), h("span", {}, "with full text"))),
     row(btn("Fetch open-access texts (Europe PMC)", () => fetchOA(ctx, recs.filter(r => !got.includes(r)), prog), "primary"),
-      health ? btn("Fetch publisher pages via local helper", () => fetchLocal(ctx, recs.filter(r => !got.includes(r)), prog)) : h("span", { class: "muted small" }, "publisher pages: start `python -m srp serve` to enable"),
+      health ? btn("Fetch publisher pages via local helper", () => fetchLocal(ctx, recs.filter(r => !got.includes(r)), prog)) : h("span", { class: "muted small" }, "publisher pages: start `python -m sieve serve` to enable"),
       btn("Add PDFs…", () => addPdfs(ctx)),
       btn("Worklist of missing (CSV)", () => worklist(ctx, recs.filter(r => !got.includes(r))))),
     prog.el));

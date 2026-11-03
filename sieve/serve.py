@@ -1,11 +1,11 @@
 """Local helper: serves the GUI and fetches pages that browsers may not load directly.
 
-    python -m srp serve                 # http://127.0.0.1:8765
-    python -m srp serve --port 9000
+    python -m sieve serve                 # http://127.0.0.1:8765
+    python -m sieve serve --port 9000
 
 Endpoints (localhost only):
   /                 the GUI (site/)
-  /api/health       {"name": "srp", "version": ...}
+  /api/health       {"name": "sieve", "version": ...}
   /api/fetch?url=   GET a publisher page or PDF server-side and return it with CORS headers,
                     so the full-text step can use your own network (e.g. university VPN/IP access).
 
@@ -25,7 +25,7 @@ from pathlib import Path
 from . import __version__
 
 SITE = Path(__file__).resolve().parent.parent / "site"
-UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126 Safari/537.36 srp/" + __version__
+UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126 Safari/537.36 sieve/" + __version__
 MAX_BYTES = 40 * 1024 * 1024
 
 
@@ -45,7 +45,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
         u = urllib.parse.urlparse(self.path)
         if u.path == "/api/health":
-            return self._json(200, {"name": "srp", "version": __version__})
+            return self._json(200, {"name": "sieve", "version": __version__})
         if u.path == "/api/fetch":
             return self._fetch(urllib.parse.parse_qs(u.query).get("url", [""])[0])
         return super().do_GET()
@@ -85,11 +85,11 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
 
 def main(argv=None) -> None:
-    ap = argparse.ArgumentParser(prog="srp serve", description="Serve the GUI + fetch helper on localhost.")
+    ap = argparse.ArgumentParser(prog="sieve serve", description="Serve the GUI + fetch helper on localhost.")
     ap.add_argument("--port", type=int, default=8765)
     a = ap.parse_args(argv)
     srv = http.server.ThreadingHTTPServer(("127.0.0.1", a.port), partial(Handler, directory=str(SITE)))
-    print(f"Review Pipeline on http://127.0.0.1:{a.port}  (Ctrl+C to stop)")
+    print(f"Sieve on http://127.0.0.1:{a.port}  (Ctrl+C to stop)")
     try:
         srv.serve_forever()
     except KeyboardInterrupt:

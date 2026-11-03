@@ -100,7 +100,7 @@ export function runPanel(task) {
   const runName = () => slug(nameIn.value || defaultRunName(b));
   host.append(b.kind === "manual" ? chatPanel(task, b, runName) : apiPanel(task, b, runName));
   host.append(h("details", { class: "advanced" }, h("summary", {}, "Run on Colab / a local GPU instead (job file)"),
-    help("Export a job file, run it with ", h("code", {}, "python -m srp run job.json --backend hf --model Qwen/Qwen3-8B"),
+    help("Export a job file, run it with ", h("code", {}, "python -m sieve run job.json --backend hf --model Qwen/Qwen3-8B"),
       " (Colab notebook in ", h("code", {}, "colab/"), "), then import the results file here."),
     row(btn("Export job file", () => exportJob(task, runName())), btn("Import results file", () => importResults(task, runName())))));
   return host;

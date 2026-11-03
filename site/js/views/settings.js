@@ -59,6 +59,6 @@ export async function render(m, ctx) {
     field("NCBI API key (optional: 10 instead of 3 PubMed requests per second)", input(s.ncbiKey, v => { s.ncbiKey = v.trim(); save(); }),
       "Free from your NCBI account settings. Speeds up term-by-term search diagnostics."),
     field("Local helper URL", input(s.localUrl, v => { s.localUrl = v.trim(); save(); }),
-      health ? `connected: ${health.name} ${health.version}` : "not running. Start it with: python -m srp serve (needed only to fetch publisher pages/PDFs)"),
+      health ? `connected: ${health.name} ${health.version}` : "not running. Start it with: python -m sieve serve (needed only to fetch publisher pages/PDFs)"),
   ));
 }

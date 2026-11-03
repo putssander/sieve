@@ -1,13 +1,13 @@
 """Run a job file exported from the GUI on a local or Colab model, then import the results file.
 
     # Colab GPU (HuggingFace transformers)
-    python -m srp run job.json --backend hf --model Qwen/Qwen3-8B [--4bit]
+    python -m sieve run job.json --backend hf --model Qwen/Qwen3-8B [--4bit]
 
     # Any OpenAI-compatible server: Ollama, LM Studio, mlx_lm.server (Mac), vLLM
-    python -m srp run job.json --backend openai --base-url http://localhost:11434/v1 --model qwen3:8b
+    python -m sieve run job.json --backend openai --base-url http://localhost:11434/v1 --model qwen3:8b
 
     # The OpenAI API itself (OPENAI_API_KEY in the environment)
-    python -m srp run job.json --backend openai --model gpt-5.5
+    python -m sieve run job.json --backend openai --model gpt-5.5
 
 The job holds the exact prompts and JSON schemas the GUI would send, so results are directly
 comparable with copy-paste and API runs. Output: <job>.results.json (resumable: finished items
@@ -98,7 +98,7 @@ class HuggingFace:
 
 
 def main(argv=None) -> None:
-    ap = argparse.ArgumentParser(prog="srp run", description="Execute a GUI job file on a local/Colab model.")
+    ap = argparse.ArgumentParser(prog="sieve run", description="Execute a GUI job file on a local/Colab model.")
     ap.add_argument("job")
     ap.add_argument("--backend", choices=["hf", "openai"], required=True)
     ap.add_argument("--model", required=True)

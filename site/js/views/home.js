@@ -4,7 +4,7 @@ import { card, btn, help, table, row } from "../ui.js";
 import { STEPS } from "../app.js";
 
 export async function render(m, ctx) {
-  m.append(h("header", { class: "page-head" }, h("h1", {}, "Review Pipeline"),
+  m.append(h("header", { class: "page-head" }, h("h1", {}, "Sieve"),
     h("p", { class: "lead" }, "One workspace for a systematic or scoping review: write the protocol, build and test the search string, "
       + "screen records against your criteria and extract data. Every AI step works by copy-paste with ChatGPT or Claude, "
       + "so you need no API key and no GPU. Keys and local models are optional.")));
@@ -37,7 +37,7 @@ export async function render(m, ctx) {
     help("Projects are stored in this browser only (IndexedDB). Export a project file to back it up or to share it with a co-reviewer."));
   m.append(list);
 
-  // Demo projects are generated locally by `python -m srp build-demo`.
+  // Demo projects are generated locally by `python -m sieve build-demo`.
   let demos = [];
   try { const r = await fetch("demo/index.json", { cache: "no-store" }); if (r.ok) demos = await r.json(); } catch { /* none */ }
   if (demos.length) m.append(card("Demo projects",

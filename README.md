@@ -1,6 +1,6 @@
-# Review Pipeline
+# Sieve
 
-A browser workspace for systematic and scoping reviews: protocol → search-string tuning → records →
+Sieve the literature down to the studies that count. A browser workspace for systematic and scoping reviews: protocol → search-string tuning → records →
 verification → full text → screening → data extraction → PRISMA report.
 
 It generalises two earlier review projects: a script-based PubMed search-string tuning study and a
@@ -21,7 +21,7 @@ so different models (and you) can be compared on the same papers.
    the browser for all papers (OpenAI Responses API with a strict schema; Claude Messages API with
    `output_config.format`). The key stays in this browser's localStorage. Use a key with a spending limit.
 3. **Local or Colab GPU.** Any OpenAI-compatible server (Ollama, LM Studio, `mlx_lm.server` on a Mac,
-   vLLM), or export a *job file*, run it with `python -m srp run` (e.g. in `colab/srp_runner.ipynb`) and
+   vLLM), or export a *job file*, run it with `python -m sieve run` (e.g. in `colab/sieve_colab.ipynb`) and
    import the results file.
 
 A ChatGPT subscription cannot be used by a website as an API. The realistic future
@@ -30,10 +30,10 @@ option is to offer this pipeline *inside* ChatGPT/Claude as an app/connector (MC
 ## Start
 
 ```bash
-python3 -m srp serve            # http://127.0.0.1:8765  (no installs needed for the GUI)
+python3 -m sieve serve            # http://127.0.0.1:8765  (no installs needed for the GUI)
 ```
 
-Or use the GitHub Pages version: https://putssander.github.io/systematic-review-pipeline/ (`.github/workflows/pages.yml` publishes `site/`, no build step). Everything the
+Or use the GitHub Pages version: https://sanderputs.com/sieve/ (`.github/workflows/pages.yml` publishes `site/`, no build step). Everything the
 app stores (projects, texts, keys) lives in the visitor's own browser.
 
 ### Your own data on the Pages site
@@ -62,14 +62,14 @@ IndexedDB; export the project file to move it or share it with a co-reviewer.
   `mlx_lm.server --model mlx-community/Qwen3-8B-4bit --port 8080` → add *Local / Colab server*
   `http://localhost:8080/v1`. Or Ollama: `ollama pull qwen3:8b` → `http://localhost:11434/v1`.
   From the GitHub Pages address, Ollama needs `OLLAMA_ORIGINS=https://<you>.github.io`; from
-  `python -m srp serve` (localhost) it works as is. LM Studio: enable CORS in its server settings.
-* **Colab:** `colab/srp_runner.ipynb` (job file → Qwen3-8B on the GPU → results file).
-* **Command line:** `python -m srp run job.json --backend openai --base-url http://localhost:11434/v1 --model qwen3:8b`
+  `python -m sieve serve` (localhost) it works as is. LM Studio: enable CORS in its server settings.
+* **Colab:** `colab/sieve_colab.ipynb` (job file → Qwen3-8B on the GPU → results file).
+* **Command line:** `python -m sieve run job.json --backend openai --base-url http://localhost:11434/v1 --model qwen3:8b`
   (resumable; `--backend hf --model Qwen/Qwen3-8B --4bit` for transformers on CUDA).
 
 ## What has been tested (3 Nov 2026)
 
-Headless Chrome against `python -m srp serve`, with two real review projects: every step renders
+Headless Chrome against `python -m sieve serve`, with two real review projects: every step renders
 without errors; a live PubMed test that reproduces the original tuning result exactly (7,908 records,
 18/18 validation, 12/12 hold-out); Crossref verification of 25 papers; Europe PMC full-text retrieval; copy-paste extraction answer pasted and parsed; job export → `srp run` (against a stand-in
 OpenAI-compatible server) → results import; the in-browser *Local server* route.
@@ -93,6 +93,6 @@ site/            the app (static, ES modules, no build)
   js/query.js    search blocks → PubMed / Ovid / WoS
   js/llm.js      copy-paste, OpenAI, Claude, OpenAI-compatible routes
   js/views/      one file per step
-srp/             python -m srp run | serve
+sieve/           python -m sieve run | serve
 colab/           Colab notebook for job files
 ```

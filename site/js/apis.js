@@ -1,5 +1,5 @@
 // Free literature APIs that allow direct browser calls (CORS): PubMed E-utilities, Crossref,
-// Europe PMC, Unpaywall. Plus the optional local helper (`python -m srp serve`) for pages that
+// Europe PMC, Unpaywall. Plus the optional local helper (`python -m sieve serve`) for pages that
 // block browsers (publisher HTML/PDF).
 
 import { getSettings } from "./store.js";
@@ -25,7 +25,7 @@ function throttled(fn) {
 
 async function eutils(ep, params, { retries = 4 } = {}) {
   const s = getSettings();
-  const p = new URLSearchParams({ db: "pubmed", tool: "srp", ...params });
+  const p = new URLSearchParams({ db: "pubmed", tool: "sieve", ...params });
   if (s.ncbiKey) p.set("api_key", s.ncbiKey);
   if (s.email) p.set("email", s.email);
   for (let i = 0; ; i++) {
@@ -154,7 +154,7 @@ export async function unpaywall(doi) {
   return { is_oa: j.is_oa, pdf: loc?.url_for_pdf || "", landing: loc?.url_for_landing_page || "", status: j.oa_status };
 }
 
-// ------------------------------------------------------------------ local helper (python -m srp serve)
+// ------------------------------------------------------------------ local helper (python -m sieve serve)
 export async function localHealth() {
   const base = localBase();
   try {

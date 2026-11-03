@@ -59,7 +59,7 @@ export const ctx = {
 function renderSide() {
   const el = clear(side());
   const parts = location.hash.split("/");
-  el.append(h("a", { class: "brand", href: "#/" }, h("span", { class: "logo" }, "◧"), " Review Pipeline"));
+  el.append(h("a", { class: "brand", href: "#/" }, h("span", { class: "logo" }, "◧"), " Sieve"));
   if (current) {
     el.append(h("div", { class: "pname", title: current.name }, current.name));
     const nav = h("nav", { class: "steps-nav" });
@@ -100,7 +100,7 @@ async function route() {
     } else {
       current = null;
       renderSide();
-      document.title = "Review Pipeline";
+      document.title = "Sieve";
       await home.render(m, ctx);
     }
   } catch (e) {

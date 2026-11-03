@@ -3,7 +3,7 @@ openpyxl>=3.1
 # Runner: OpenAI API and any OpenAI-compatible server (Ollama, LM Studio, mlx_lm.server, vLLM)
 openai>=1.40
 
-# Optional, Colab GPU / Linux CUDA: python -m srp run job.json --backend hf
+# Optional, Colab GPU / Linux CUDA: python -m sieve run job.json --backend hf
 # transformers>=4.51
 # torch>=2.3
 # accelerate>=0.30

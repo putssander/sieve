@@ -1,4 +1,4 @@
-"""python -m srp <command> ...
+"""python -m sieve <command> ...
 
   build-demo   (local only) build demo project files from private project folders
   run          execute a job file exported from the GUI (screening / extraction) on a local or Colab model
@@ -13,7 +13,7 @@ def main() -> None:
         try:
             from .build_demo import main as m
         except ImportError:
-            sys.exit("build-demo is a local-only tool (srp/build_demo.py is not part of the public repository)")
+            sys.exit("build-demo is a local-only tool (sieve/build_demo.py is not part of the public repository)")
     elif cmd == "run":
         from .runner import main as m
     elif cmd == "serve":
