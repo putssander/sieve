@@ -20,7 +20,7 @@ import { stageIcon } from "./icons.js";
 import { sieveLogo } from "./brand.js";
 
 export const STEPS = [
-  { id: "protocol", n: 1, label: "Protocol", sub: "question, PICO, criteria", view: protocol },
+  { id: "protocol", n: 1, label: "Protocol", sub: "question, purpose, criteria", view: protocol },
   { id: "search", n: 2, label: "Search", sub: "build & tune the string", view: search },
   { id: "records", n: 3, label: "Records", sub: "import & deduplicate", view: records },
   { id: "verify", n: 4, label: "Verify", sub: "DOI, title, year checks", view: verify },
@@ -67,8 +67,19 @@ function renderSide() {
   const el = clear(side());
   const parts = location.hash.split("/");
   el.append(h("a", { class: "brand", href: "#/", "aria-label": "Sieve home" }, sieveLogo(), h("span", {}, "sieve", h("span", { class: "brand-dot" }, "."))));
+  const toggle = h("button", { type: "button", class: "navigation-toggle", "aria-expanded": "false", "aria-controls": "site-navigation", onclick: () => {
+    const open = el.classList.toggle("menu-open");
+    toggle.setAttribute("aria-expanded", String(open));
+  } }, stageIcon("menu"), "Steps & help");
+  const content = h("div", { class: "navigation-content", id: "site-navigation" });
+  el.append(toggle, content);
+  el.onkeydown = e => {
+    if (e.key === "Escape" && el.classList.contains("menu-open")) {
+      el.classList.remove("menu-open"); toggle.setAttribute("aria-expanded", "false"); toggle.focus();
+    }
+  };
   if (current && parts[1] === "p") {
-    el.append(h("div", { class: "pname", title: current.name }, current.name));
+    content.append(h("div", { class: "pname", title: current.name }, current.name));
     const nav = h("nav", { class: "steps-nav" });
     for (const s of STEPS) {
       const st = status(current, s.id);
@@ -77,30 +88,32 @@ function renderSide() {
         h("span", { class: "lbl" }, h("span", { class: "stage-name" }, stageIcon(s.id), s.label), h("small", {}, s.sub)),
         st && st !== "done" && st !== "part" && h("span", { class: "count" }, st)));
     }
-    el.append(nav);
+    content.append(nav);
   } else {
-    el.append(h("div", { class: "side-intro" }, "A workspace for literature research"),
+    content.append(h("div", { class: "side-intro" }, "A workspace for literature research"),
       h("div", { class: "nav-caption" }, "Explore the workflow"));
     const nav = h("nav", { class: "steps-nav", "aria-label": "Explore the workflow" });
     for (const s of STEPS) nav.append(h("a", {
       href: `#/guide/${s.id}`, class: parts[1] === "guide" && parts[2] === s.id ? "active" : "",
       "aria-current": parts[1] === "guide" && parts[2] === s.id ? "page" : undefined,
     }, h("span", { class: "num" }, s.n), h("span", { class: "lbl" }, h("span", { class: "stage-name" }, stageIcon(s.id), s.label), h("small", {}, s.sub))));
-    el.append(nav);
+    content.append(nav);
   }
-  el.append(h("div", { class: "side-foot" },
+  content.append(h("div", { class: "side-foot" },
     h("a", { href: "#/", class: parts[1] === "" || !parts[1] ? "active" : "" }, "Projects"),
     h("a", { href: "#/guide/protocol" }, "Workflow tour"),
     h("a", { href: "#/guide/options", class: parts[2] === "options" ? "active" : "" }, "AI, tokens & local tools"),
     h("a", { href: "#/methods", class: parts[1] === "methods" ? "active" : "" }, "Methods & guidance"),
     h("a", { href: "#/settings", class: parts[1] === "settings" ? "active" : "" }, "Models & keys")));
   const ver = h("div", { class: "side-version", title: "Sieve version, commit and build time" });
-  el.append(ver);
+  content.append(ver);
   getVersion().then(v => { ver.textContent = versionText(v); });
 }
 
 async function route() {
+  home.cleanup();
   const parts = location.hash.replace(/^#/, "").split("/"); // ["", "p", id, step]
+  document.body.classList.toggle("is-home", !parts[1]);
   const m = clear(main());
   document.querySelectorAll(".modal-bg").forEach(x => x.remove());   // dialogs belong to the page they were opened on
   try {
@@ -148,5 +161,12 @@ async function route() {
 export function setProject(p) { current = p; }
 
 window.addEventListener("hashchange", route);
+document.addEventListener("pointerdown", e => {
+  const el = side();
+  if (el?.classList.contains("menu-open") && !el.contains(e.target)) {
+    el.classList.remove("menu-open");
+    el.querySelector(".navigation-toggle")?.setAttribute("aria-expanded", "false");
+  }
+});
 window.addEventListener("beforeunload", () => { if (saveTimer && current) saveProject(current); });
 route();

@@ -97,7 +97,7 @@ function backendCard(ctx, s, b, save) {
     b.kind === "manual" && [
       h("div", { class: "flabel" }, "Where do you like to chat?"),
       h("div", { class: "chat-choice" }, Object.entries(CHAT_SITES).map(([id, chat]) =>
-        h("button", { type: "button", class: (b.chat || "chatgpt") === id ? "selected" : "", "aria-pressed": (b.chat || "chatgpt") === id, onclick: () => {
+        h("button", { type: "button", class: (b.chat || "chatgpt") === id ? "selected" : "", "aria-pressed": String((b.chat || "chatgpt") === id), onclick: () => {
           if (/^Copy-paste to (ChatGPT|Claude)$/.test(b.label)) b.label = `Copy-paste to ${chat.label}`;
           b.chat = id; save(); ctx.rerender();
         } }, platformLogo(id === "claude" ? "claude" : "chatgpt", "", true), chat.label))),

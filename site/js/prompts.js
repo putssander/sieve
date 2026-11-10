@@ -1,6 +1,7 @@
 // The single source of truth for every LLM task: prompt text + JSON schema.
 // The same builders feed the API backends, the copy-paste chat panel and the job files for
 // the Python runner (Colab / local GPU), so results from all routes are comparable.
+import { PURPOSES } from "./review-plan.js";
 
 export const DECISIONS = ["Include", "Exclude", "Exclude, but save for snowballing", "Unclear"];
 export const SYSTEM_SCREEN = "You are a careful systematic-review screening assistant. You screen papers against fixed eligibility criteria and return ONLY JSON matching the requested schema.";
@@ -79,7 +80,7 @@ export function screeningPrompt(project, items, { attachments = false } = {}) {
   const many = items.length > 1;
   return `${many ? `Screen the ${items.length} papers below` : "Screen the paper below"} for a ${p.review_type || "systematic"} review.
 
-Review question: ${p.question || "(see criteria)"}
+Review question: ${p.question || "(see criteria)"}${p.purpose ? `\nReview purpose: ${PURPOSES.find(x => x.id === p.purpose)?.label || p.purpose}` : ""}
 
 Eligibility criteria:
 ${criteriaText(project)}
@@ -144,7 +145,7 @@ export function extractionPrompt(project, items, fields, { attachments = false }
   const markCore = items.some(it => it.coreOnly);
   return `Extract data from ${many ? `the ${items.length} included papers below` : "the included paper below"} for a ${project.protocol.review_type || "systematic"} review.
 
-Review question: ${project.protocol.question || ""}
+Review question: ${project.protocol.question || ""}${project.protocol.purpose ? `\nReview purpose: ${PURPOSES.find(x => x.id === project.protocol.purpose)?.label || project.protocol.purpose}` : ""}
 
 Fields to extract (use the field id as JSON key):
 ${fields.map(f => fieldText(f, markCore)).join("\n")}

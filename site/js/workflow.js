@@ -1,9 +1,9 @@
 // Public walkthrough content. No project, model, or network access is needed to explore it.
 export const WORKFLOW = [
   { id: "protocol", label: "Protocol", phase: "Plan your review", headline: "Turn a broad topic into a question you can answer.",
-    intro: "Agree on the scope with your supervisor or review team before collecting papers. Your criteria will guide screening and extraction later.",
-    bring: "A research question, proposal, protocol or search ticket. A rough draft is enough to start.",
-    you: "Choose a question framework, define eligibility criteria and review any suggested changes.",
+    intro: "Start with what you want to find out and how you will use the answer. Choose a fitting review type, then agree on the scope and rules with your team.",
+    bring: "A research question, what you will use the answer for, or a proposal or search ticket. A rough draft is enough to start.",
+    you: "Choose the purpose, review type and question framework, define eligibility criteria and review any suggested changes.",
     sieve: "Organises your question and criteria. Import a document or ask an optional assistant to help draft them.",
     output: "A working protocol and explicit inclusion and exclusion criteria.",
     effort: "The main investment is agreeing on the scope. Revisit it with your supervisor before scaling up.",

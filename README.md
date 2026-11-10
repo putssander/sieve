@@ -10,6 +10,23 @@ read back automatically.
 
 ## Explore before starting a project
 
+The home page opens with **What do you want to know, and why?** Seven illustrative questions rotate every
+six seconds with a rolling crossfade, a progress rail, pause, previous and next controls. Hovering keeps the
+cycle running; editing the question pauses it. Reduced-motion preferences
+disable autoplay. Choose a purpose to see a suggested review type and compare systematic, scoping,
+narrative, rapid and umbrella reviews, with question frameworks, reporting guidance and work involved.
+An update or living approach is recorded separately from the underlying review type.
+The landing page keeps the animated question, purpose, short suggestion and start button together at
+comfortable reading sizes. The eight-step preview follows below. Full comparisons and project management
+unfold on demand. The home page uses a simple header; narrow layouts tuck navigation into **Steps & help**
+instead of showing an icon grid. The menu supports Escape and closes when clicking outside it.
+
+**Start with this question** creates a project with the draft question and selected plan. Step 1 begins
+with the same purpose-first choices. Filled framework fields are cached when switching frameworks so
+exploring PICO, PCC or an open question does not discard earlier entries. Purpose is included in screening
+and extraction prompts for projects that have it. Suggestions are informed by Munn et al. (2018),
+Grant & Booth (2009), JBI, Cochrane and PRISMA guidance, linked directly in the interface.
+
 The home page and sidebar link to a project-free walkthrough of all eight steps (`#/guide/protocol`).
 Each step explains what to bring, what the researcher decides, what Sieve helps with, the expected output
 and the work involved, alongside a labelled illustrative example. Exploring the walkthrough does not

@@ -30,7 +30,7 @@ export function emptyProject(name = "New review") {
   return {
     format: FORMAT, version: 1, id: `p-${Date.now().toString(36)}`, name, description: "",
     created: now, updated: now,
-    protocol: { question: "", framework: "PICO", review_type: "systematic", notes: "",
+    protocol: { question: "", purpose: "", maintenance: "one-off", framework: "PICO", review_type: "systematic", notes: "",
       elements: [
         { key: "P", label: "Population / problem", text: "" },
         { key: "I", label: "Intervention / exposure", text: "" },

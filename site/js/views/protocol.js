@@ -6,36 +6,39 @@ import { blocksToText } from "../docx.js";
 import { pickDocument, importDialog, takePending } from "./docload.js";
 import { card, btn, help, field, input, textarea, select, row, runPanel, modal } from "../ui.js";
 import { DECISIONS, SYSTEM_SEARCH, protocolSchema, protocolFromDocPrompt } from "../prompts.js";
-
-const FRAMEWORKS = {
-  PICO: [["P", "Population / problem"], ["I", "Intervention / exposure"], ["C", "Comparison"], ["O", "Outcome"]],
-  PICo: [["P", "Population"], ["I", "Phenomenon of interest"], ["Co", "Context"]],
-  SPIDER: [["S", "Sample"], ["PI", "Phenomenon of interest"], ["D", "Design"], ["E", "Evaluation"], ["R", "Research type"]],
-  PCC: [["P", "Population"], ["C", "Concept"], ["C2", "Context"]],
-};
+import { FRAMEWORKS, changeFramework, applyReviewPlan } from "../review-plan.js";
+import { reviewStarter } from "./review-start.js";
 
 export function render(m, ctx) {
   const p = ctx.project, pr = p.protocol;
   const save = () => ctx.save();
+  let redrawProtocol = () => {};
   m.append(stepIntro("protocol", "The protocol drives everything after it: the search assistant uses the question and PICO, "
     + "and every screening prompt is built from the criteria below."));
+
+  m.append(reviewStarter({ initial: { question: pr.question, purpose: pr.purpose, type: pr.review_type, framework: pr.framework, exampleId: pr.starter_example, maintenance: pr.maintenance === "one-off" ? "update" : pr.maintenance },
+    onChange(draft, reason) {
+      if (reason === "question") { pr.question = draft.question; delete pr.starter_example; save(); return; }
+      if (reason === "maintenance") { pr.maintenance = draft.maintenance; save(); return; }
+      applyReviewPlan(pr, draft); save(); redrawProtocol();
+    } }).el);
 
   m.append(documentsCard(ctx));
   const pending = takePending(p.id);
   if (pending) setTimeout(() => importDialog(ctx, pending), 0);
 
-  m.append(card("Review",
+  const protocolForm = h("div");
+  redrawProtocol = () => protocolForm.replaceChildren(
     field("Project name", input(p.name, v => { p.name = v; save(); })),
-    field("Review question", textarea(pr.question, v => { pr.question = v; save(); }, { rows: 3 })),
     help("A ", termHelp("framework", "question framework"), " helps you break a broad topic into clear parts."),
-    row(field("Review type", select(pr.review_type, ["systematic", "scoping", "rapid", "umbrella"], v => { pr.review_type = v; save(); })),
       field("Framework", select(pr.framework, Object.keys(FRAMEWORKS), v => {
-        pr.framework = v;
-        pr.elements = FRAMEWORKS[v].map(([key, label]) => ({ key, label, text: pr.elements.find(e => e.key === key)?.text || "" }));
-        save(); ctx.rerender();
-      }))),
+        changeFramework(pr, v);
+        save(); redrawProtocol();
+      })),
     h("div", { class: "grid2" }, pr.elements.map(e => field(`${e.key} · ${e.label}`, textarea(e.text, v => { e.text = v; save(); }, { rows: 2 })))),
-    field("Notes / open decisions", textarea(pr.notes, v => { pr.notes = v; save(); }, { rows: 2 }))));
+    field("Notes / open decisions", textarea(pr.notes, v => { pr.notes = v; save(); }, { rows: 2 })));
+  redrawProtocol();
+  m.append(card("Refine your protocol", protocolForm));
 
   const crit = h("div");
   function renderCriteria() {

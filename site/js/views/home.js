@@ -7,8 +7,14 @@ import { disclosure } from "../disclosure.js";
 import { stageIcon } from "../icons.js";
 import { openExample } from "./example.js";
 import { platformStrip } from "../brand.js";
+import { reviewStarter } from "./review-start.js";
+import { applyReviewPlan } from "../review-plan.js";
+
+let destroyStarter;
+export function cleanup() { destroyStarter?.(); destroyStarter = null; }
 
 export async function render(m, ctx) {
+  cleanup();
   const createProject = async () => {
     const name = prompt("Name of the review", "My review");
     if (!name) return;
@@ -17,34 +23,22 @@ export async function render(m, ctx) {
     ctx.go(`#/p/${p.id}/protocol`);
   };
   const projects = await listProjects();
-  m.append(h("header", { class: "research-hero welcome-compact" },
-    h("div", { class: "hero-copy" }, h("div", { class: "eyebrow" }, "Step-by-step guidance for literature reviews ", h("span", { class: "badge warn" }, "work in progress")),
-      h("h1", {}, projects.length ? "Welcome back to your review." : "Your literature review, step by step, with frontier AI."),
-      h("p", { class: "lead" }, "Sieve guides you through a systematic or scoping review in eight steps, from question to evidence table, "
-        + "and shows how to use frontier models such as ChatGPT and Claude at each step. Every AI answer comes with quotes that Sieve checks against the papers. You make the decisions."),
-      h("div", { class: "hero-actions" },
-        projects.length
-          ? h("a", { class: "btn primary", href: `#/p/${projects[0].id}/protocol` }, stageIcon("folder"), "Continue your review")
-          : btn([stageIcon("protocol"), "Start a review"], createProject, "primary"),
-        h("a", { class: "btn", href: "#/guide/protocol" }, stageIcon("search"), "Explore the steps")),
-      h("p", { class: "hero-reassurance" }, "Works with your own ChatGPT or Claude · No API key needed · AI is optional · Your work stays in this browser")),
-    h("div", { class: "home-brand-art", "aria-hidden": "true" },
-      h("div", { class: "brand-art-orbit" }),
-      h("img", { src: "assets/sieve-mark.svg", alt: "", width: 108, height: 108 }),
-      h("span", { class: "art-label art-label-top" }, stageIcon("records"), "A world of papers"),
-      h("span", { class: "art-label art-label-bottom" }, stageIcon("verify"), "Your evidence, in focus"))));
-  m.append(platformStrip());
+  const overview = h("section", { class: "workflow-overview home-workflow" },
+    h("div", { class: "section-heading" }, h("div", {}, h("h2", {}, "A clear path through your review"), h("p", { class: "muted" }, "Explore any step before you begin.")),
+      btn("Try an example", () => openExample(ctx, "protocol"), "ghost sm")),
+    h("nav", { class: "pipeline", "aria-label": "Explore the eight steps" }, STEPS.map(s => h("a", { class: "pstep", href: `#/guide/${s.id}`, title: `${s.n}. ${s.label}: ${s.sub}` },
+      stageIcon(s.id), h("span", {}, h("b", {}, s.label), h("small", {}, s.sub))))));
+  const starter = reviewStarter({ home: true, resumeHref: projects.length ? `#/p/${projects[0].id}/protocol` : "",
+    onStart: async draft => {
+      const p = emptyProject(draft.question.length > 90 ? draft.question.slice(0, 87).trim() + "…" : draft.question);
+      applyReviewPlan(p.protocol, draft);
+      await saveProject(p);
+      ctx.go(`#/p/${p.id}/protocol`);
+    } });
+  destroyStarter = starter.destroy;
+  m.append(starter.el, overview);
 
-  const overview = h("section", { class: "workflow-overview" },
-    h("div", { class: "section-heading" }, h("div", {}, h("h2", {}, "Your review at a glance"),
-      h("p", { class: "muted" }, "Pick a step to see what’s involved.")),
-      btn([stageIcon("fulltext"), "Try the example"], () => openExample(ctx, "protocol"), "ghost")),
-    h("div", { class: "pipeline" }, STEPS.map(s => h("a", { class: "pstep", href: `#/guide/${s.id}` },
-      h("span", { class: "step-index" }, stageIcon(s.id), String(s.n).padStart(2, "0")), h("b", {}, s.label), h("span", {}, s.sub),
-      h("span", { class: "step-arrow", "aria-hidden": "true" }, "↗")))));
-  if (!projects.length) m.append(overview);
-
-  const list = card("Your projects",
+  const list = card(null,
     row(btn("New project", createProject, "primary"),
     btn("New project from a document…", async () => {
       try {
@@ -83,13 +77,13 @@ export async function render(m, ctx) {
     help("Have a search ticket, protocol or PICO form already? ", h("strong", {}, "New project from a document"),
       " fills in the question, PICO, known articles and search tables, and the assistant drafts the rest (copy-paste, no key needed)."),
     help("Projects save in this browser. Export a project file to back up your work or share it with a co-reviewer.")));
-  m.append(list);
-  if (projects.length) m.append(overview);
+  const projectsPanel = disclosure("folder", `Your projects (${projects.length})`, "", list);
+  m.append(h("div", { class: "home-bottom-row" }, projectsPanel, platformStrip()));
 
   // Demo projects are generated locally by `python -m sieve build-demo`.
   let demos = [];
   try { const r = await fetch("demo/index.json", { cache: "no-store" }); if (r.ok) demos = await r.json(); } catch { /* none */ }
-  if (demos.length) m.append(disclosure("fulltext", "More example projects", "Explore with sample data",
+  if (demos.length) projectsPanel.lastElementChild.append(disclosure("fulltext", "More example projects", "Explore with sample data",
     help("Opening a demo copies it into your browser; you can change it freely."),
     demos.map(d => h("div", { class: "route" }, h("h4", {}, d.name), h("p", { class: "muted" }, d.description),
       btn("Open demo", async () => {
@@ -99,9 +93,4 @@ export async function render(m, ctx) {
         ctx.go(`#/p/${p.id}/${p.search.blocks.length ? "search" : "screening"}`);
       }, "primary")))));
 
-  m.append(h("nav", { class: "resource-links", "aria-label": "Help and setup" },
-    [["chat", "AI & costs", "Compare your options", "#/guide/options"],
-     ["verify", "Methods & guidance", "Understand the approach", "#/methods"],
-     ["computer", "Models & keys", "Connect when you’re ready", "#/settings"]].map(([icon, title, hint, href]) =>
-      h("a", { href }, stageIcon(icon), h("span", {}, h("strong", {}, title), h("small", {}, hint)), stageIcon("chevron")))));
 }

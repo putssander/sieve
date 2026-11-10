@@ -1,5 +1,6 @@
 import { stepIntro } from "../disclosure.js";
 import { termHelp } from "../explain.js";
+import { REVIEW_TYPES } from "../review-plan.js";
 import { h, download, copy, fmt } from "../util.js";
 import { card, btn, help, row, table } from "../ui.js";
 import { exportProject } from "../store.js";
@@ -29,9 +30,12 @@ function counts(p) {
 
 export function render(m, ctx) {
   const p = ctx.project, c = counts(p);
-  m.append(stepIntro("report", "Numbers for the PRISMA 2020 flow diagram, a draft methods paragraph built from what was actually run, and the exports."));
+  m.append(stepIntro("report", "Selection counts, a draft methods paragraph built from what was actually run, and the exports. Check the reporting guidance for your chosen review type."));
   if (c.taHuman < c.screened) m.append(help(`Note: ${c.screened - c.taHuman} of ${c.screened} title/abstract decisions are model-only (no human decision yet); they count where the models agree.`));
-  m.append(card(termHelp("prisma", "PRISMA 2020 flow"), h("div", { class: "prisma" }, prisma(c)),
+  const reviewType = REVIEW_TYPES[p.protocol.review_type];
+  m.append(card(termHelp("prisma", "Study selection flow"),
+    reviewType && help(reviewType.reporting, " This diagram is one part of reporting your review."),
+    h("div", { class: "prisma" }, prisma(c)),
     row(btn("Download SVG", () => download(`${p.id}-prisma.svg`, prisma(c).outerHTML, "image/svg+xml")))));
   m.append(card("Methods (draft)", h("p", {}, methods(p, c)), row(btn("Copy", () => copy(methods(p, c))))));
   m.append(card("Search strategy appendix",

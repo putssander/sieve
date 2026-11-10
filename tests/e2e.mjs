@@ -201,7 +201,7 @@ await js(`const s = await import("/js/store.js"); await s.deleteProject(window._
 
 // ---------------------------------------------------------------- example project, tour and methods page
 await send("Page.navigate", { url: `${BASE}/#/` }); await sleep(1200);
-await click("Try the example");
+await click("Try an example");
 for (let i = 0; i < 60 && !/example-llm-screening/.test(await js(`return location.hash`)); i++) await sleep(500);
 await sleep(800);
 const exUrl = await js(`return location.hash`);
