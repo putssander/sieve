@@ -1,0 +1,337 @@
+{
+  "results": [
+    {
+      "id": "1",
+      "decision": "Exclude",
+      "criteria": {
+        "llm_screening": "No",
+        "human_reference": "No",
+        "accuracy_reported": "No",
+        "original_study": "No"
+      },
+      "failed_criteria": [
+        {
+          "criterion": "llm_screening",
+          "evidence_quote": "This study systematically evaluates and compares the performance of large language models (LLMs) in answering medical licensing examination questions.",
+          "interpretation": "LLMs answer exam questions; they do not screen records for a review."
+        },
+        {
+          "criterion": "human_reference",
+          "evidence_quote": "LLMs, particularly GPT-4, can match or exceed medical students' examination performance",
+          "interpretation": "Comparison is with students' exam scores, not with human screening decisions."
+        },
+        {
+          "criterion": "accuracy_reported",
+          "evidence_quote": "The pooled accuracy was 72% (95% confidence interval, 70.0% to 75.0%)",
+          "interpretation": "Accuracy refers to exam answers; no screening sensitivity or specificity."
+        },
+        {
+          "criterion": "original_study",
+          "evidence_quote": "This systematic review, registered in PROSPERO and following PRISMA",
+          "interpretation": "Systematic review and meta-analysis, not a primary evaluation study."
+        }
+      ],
+      "primary_exclusion_reason": "Off-topic: LLM performance on medical licensing exams, not LLM screening of review records.",
+      "eligibility_evidence": "",
+      "screening_note": "Judged on title/abstract only. A review on an unrelated LLM task, so not kept for snowballing.",
+      "needs_human_review": false
+    },
+    {
+      "id": "2",
+      "decision": "Exclude",
+      "criteria": {
+        "llm_screening": "No",
+        "human_reference": "No",
+        "accuracy_reported": "No",
+        "original_study": "No"
+      },
+      "failed_criteria": [
+        {
+          "criterion": "llm_screening",
+          "evidence_quote": "This study aimed to review the current applications of GAI in medical education",
+          "interpretation": "Topic is generative AI in medical education, not LLM screening of review records."
+        },
+        {
+          "criterion": "human_reference",
+          "evidence_quote": "focusing on GAI applications in medical education",
+          "interpretation": "No comparison of LLM decisions with human screening decisions."
+        },
+        {
+          "criterion": "accuracy_reported",
+          "evidence_quote": "We integrated quantitative analysis of publication trends and Human Development Index (HDI) with thematic analysis",
+          "interpretation": "Reports publication trends and themes, not screening sensitivity or specificity."
+        },
+        {
+          "criterion": "original_study",
+          "evidence_quote": "This scoping review used PubMed, Web of Science, and Scopus to analyze literature from January 2023 to October 2024",
+          "interpretation": "Scoping review, not a primary evaluation study."
+        }
+      ],
+      "primary_exclusion_reason": "Off-topic: scoping review of generative AI in medical education.",
+      "eligibility_evidence": "",
+      "screening_note": "Judged on title/abstract only. Off-topic review, so not kept for snowballing.",
+      "needs_human_review": false
+    },
+    {
+      "id": "3",
+      "decision": "Exclude, but save for snowballing",
+      "criteria": {
+        "llm_screening": "Unclear",
+        "human_reference": "No",
+        "accuracy_reported": "Unclear",
+        "original_study": "No"
+      },
+      "failed_criteria": [
+        {
+          "criterion": "llm_screening",
+          "evidence_quote": "showing particular promise in literature screening and data extraction",
+          "interpretation": "Discusses LLM screening in other studies but does not itself run LLM screening."
+        },
+        {
+          "criterion": "human_reference",
+          "evidence_quote": "Theoretical analysis suggests potential for significant efficiency gains while maintaining methodological rigour through strategic human oversight.",
+          "interpretation": "No own comparison of LLM decisions against human screening decisions."
+        },
+        {
+          "criterion": "accuracy_reported",
+          "evidence_quote": "reported accuracy ranging from 61% to 99%",
+          "interpretation": "Accuracy summarised across tasks from other studies; no own sensitivity or specificity for screening."
+        },
+        {
+          "criterion": "original_study",
+          "evidence_quote": "We conducted a narrative review of recent studies applying LLMs across key SRMA stages.",
+          "interpretation": "Narrative review plus theoretical framework, not a primary evaluation study."
+        }
+      ],
+      "primary_exclusion_reason": "Not an original study: narrative review and framework proposal on LLMs in systematic reviews.",
+      "eligibility_evidence": "",
+      "screening_note": "Judged on title/abstract only. On-topic review of 21 publications on LLMs in SRMA stages including screening; its reference list is worth snowballing.",
+      "needs_human_review": false
+    },
+    {
+      "id": "7",
+      "decision": "Exclude",
+      "criteria": {
+        "llm_screening": "No",
+        "human_reference": "No",
+        "accuracy_reported": "No",
+        "original_study": "No"
+      },
+      "failed_criteria": [
+        {
+          "criterion": "llm_screening",
+          "evidence_quote": "This systematic review aims to explore and understand the impact of artificial intelligence on burnout associated with electronic health records among healthcare professionals.",
+          "interpretation": "Topic is AI and EHR-related burnout, not LLM screening of review records."
+        },
+        {
+          "criterion": "human_reference",
+          "evidence_quote": "evaluated the impact of AI-based technologies on burnout among healthcare professionals",
+          "interpretation": "No comparison of LLM decisions with human screening decisions."
+        },
+        {
+          "criterion": "accuracy_reported",
+          "evidence_quote": "reported positive outcomes, including decreased documentation time, enhanced workflow efficiency, and reduced symptoms of burnout",
+          "interpretation": "Outcomes are burnout and workflow measures, not screening accuracy."
+        },
+        {
+          "criterion": "original_study",
+          "evidence_quote": "A systematic literature review was conducted following the PRISMA 2020 guidelines.",
+          "interpretation": "Systematic review, not a primary evaluation study."
+        }
+      ],
+      "primary_exclusion_reason": "Off-topic: AI and EHR-related clinician burnout.",
+      "eligibility_evidence": "",
+      "screening_note": "Judged on title/abstract only. Off-topic review, so not kept for snowballing.",
+      "needs_human_review": false
+    },
+    {
+      "id": "8",
+      "decision": "Exclude",
+      "criteria": {
+        "llm_screening": "No",
+        "human_reference": "No",
+        "accuracy_reported": "No",
+        "original_study": "No"
+      },
+      "failed_criteria": [
+        {
+          "criterion": "llm_screening",
+          "evidence_quote": "We aimed to systematically examine the current applications of GenAI in mental health",
+          "interpretation": "Topic is generative AI in mental health care, not LLM screening of review records."
+        },
+        {
+          "criterion": "human_reference",
+          "evidence_quote": "focusing on 3 core domains: diagnosis and assessment, therapeutic tools, and clinician support",
+          "interpretation": "No comparison of LLM decisions with human screening decisions."
+        },
+        {
+          "criterion": "accuracy_reported",
+          "evidence_quote": "Studies on diagnosis and assessment (37/79, 47%) primarily used GenAI models to detect depression and suicidality through text data.",
+          "interpretation": "Any accuracy concerns clinical detection, not screening of review records."
+        },
+        {
+          "criterion": "original_study",
+          "evidence_quote": "We conducted a comprehensive literature search, following the PRISMA (Preferred Reporting Items for Systematic Reviews and Meta-Analyses) 2020 guidelines",
+          "interpretation": "Systematic review, not a primary evaluation study."
+        }
+      ],
+      "primary_exclusion_reason": "Off-topic: generative AI applications and ethics in mental health.",
+      "eligibility_evidence": "",
+      "screening_note": "Judged on title/abstract only. Off-topic review, so not kept for snowballing.",
+      "needs_human_review": false
+    },
+    {
+      "id": "9",
+      "decision": "Exclude",
+      "criteria": {
+        "llm_screening": "No",
+        "human_reference": "No",
+        "accuracy_reported": "No",
+        "original_study": "No"
+      },
+      "failed_criteria": [
+        {
+          "criterion": "llm_screening",
+          "evidence_quote": "This review aims to synthesise research findings to consolidate the implications of ChatGPT integration in healthcare and identify research gaps.",
+          "interpretation": "Broad umbrella review of ChatGPT in healthcare; the LLM does not screen records."
+        },
+        {
+          "criterion": "human_reference",
+          "evidence_quote": "Two reviewers undertook title, abstract, and full text screening independently.",
+          "interpretation": "Screening was done by humans only; no LLM-versus-human comparison."
+        },
+        {
+          "criterion": "accuracy_reported",
+          "evidence_quote": "Due to the heterogeneity of the included studies, no quantitative analysis was performed.",
+          "interpretation": "No sensitivity or specificity reported."
+        },
+        {
+          "criterion": "original_study",
+          "evidence_quote": "The review examined 17 studies, comprising 15 systematic reviews and 2 meta-analyses, on ChatGPT in healthcare",
+          "interpretation": "Umbrella review, not a primary evaluation study."
+        }
+      ],
+      "primary_exclusion_reason": "Off-topic: umbrella review of ChatGPT use in healthcare in general.",
+      "eligibility_evidence": "",
+      "screening_note": "Judged on title/abstract only. It mentions ChatGPT's role in 'conducting systematic reviews' as a minor theme, but the focus is healthcare in general, so not kept for snowballing.",
+      "needs_human_review": false
+    },
+    {
+      "id": "10",
+      "decision": "Include",
+      "criteria": {
+        "llm_screening": "Yes",
+        "human_reference": "Yes",
+        "accuracy_reported": "Yes",
+        "original_study": "Yes"
+      },
+      "failed_criteria": [],
+      "primary_exclusion_reason": "N/A",
+      "eligibility_evidence": "LLM screening: “We aimed to validate large language models (LLMs) used to automate abstract screening.” Human reference: “LLMs exhibited superior performance to human researchers in terms of sensitivity (LLMmax = 1.000, humanmax = 0.775)”. Accuracy: “consistent sensitivity (range 0.756-1.000) but diminished precision (range 0.004-0.096)”. Original study: “trialed across 23 Cochrane Library systematic reviews to evaluate their accuracy in zero-shot binary classification for abstract screening”.",
+      "screening_note": "Judged on title/abstract only. Sensitivity and precision are reported; specificity is not named in the abstract, but sensitivity alone satisfies the accuracy criterion.",
+      "needs_human_review": false
+    },
+    {
+      "id": "11",
+      "decision": "Include",
+      "criteria": {
+        "llm_screening": "Yes",
+        "human_reference": "Yes",
+        "accuracy_reported": "Yes",
+        "original_study": "Yes"
+      },
+      "failed_criteria": [],
+      "primary_exclusion_reason": "N/A",
+      "eligibility_evidence": "LLM screening: “We evaluated GPT-4o, GPT-4o-mini, and Llama 3.1:8B on abstract screening and risk of bias assessment using 12 Cochrane drug intervention reviews.” Human reference: “Validation Based on Cochrane Review Data” (title). Accuracy: “GPT-4o achieved the best screening performance (recall 0.894, precision 0.492)”. Original study: “We propose a one-shot inclusivity adjustment method”.",
+      "screening_note": "Judged on title/abstract only. The reference standard is taken to be the Cochrane reviews' (human) inclusion decisions; the abstract does not state this explicitly, so confirm at full text.",
+      "needs_human_review": false
+    },
+    {
+      "id": "12",
+      "decision": "Exclude, but save for snowballing",
+      "criteria": {
+        "llm_screening": "Unclear",
+        "human_reference": "No",
+        "accuracy_reported": "No",
+        "original_study": "No"
+      },
+      "failed_criteria": [
+        {
+          "criterion": "llm_screening",
+          "evidence_quote": "Screening and extraction process took place in Covidence with the help of LLM add-on based on the OpenAI GPT-4o model.",
+          "interpretation": "An LLM assisted this review's own screening, but that screening is not the object of evaluation."
+        },
+        {
+          "criterion": "human_reference",
+          "evidence_quote": "Our LLM-assisted systematic review revealed a significant number of research projects related to review automation using LLMs.",
+          "interpretation": "No comparison of LLM screening decisions against human decisions is reported."
+        },
+        {
+          "criterion": "accuracy_reported",
+          "evidence_quote": "the former was better in data extraction with a mean precision of 83.0% (SD = 10.4) and a recall of 86.0%",
+          "interpretation": "Pooled metrics concern data extraction, not screening sensitivity or specificity."
+        },
+        {
+          "criterion": "original_study",
+          "evidence_quote": "This study aims to summarize the usage of large language models (LLMs) in the process of creating a scientific review",
+          "interpretation": "Systematic review of 172 studies, not a primary evaluation study."
+        }
+      ],
+      "primary_exclusion_reason": "Not an original study: systematic review of LLM use in review automation.",
+      "eligibility_evidence": "",
+      "screening_note": "Judged on title/abstract only. Highly relevant review (172 studies on LLM review automation); its included studies should be snowballed for primary LLM screening evaluations.",
+      "needs_human_review": false
+    },
+    {
+      "id": "13",
+      "decision": "Unclear",
+      "criteria": {
+        "llm_screening": "Yes",
+        "human_reference": "Unclear",
+        "accuracy_reported": "Yes",
+        "original_study": "Yes"
+      },
+      "failed_criteria": [
+        {
+          "criterion": "human_reference",
+          "evidence_quote": "GPT-4 Turbo had superior specificity when compared to GPT-3.5 Turbo (0.98 vs 0.51), as well as comparable sensitivity (0.85 vs 0.83)",
+          "interpretation": "Sensitivity and specificity imply a reference standard, but the abstract does not say it was human screening decisions."
+        }
+      ],
+      "primary_exclusion_reason": "Reference standard not stated in the abstract; human comparison cannot be confirmed.",
+      "eligibility_evidence": "",
+      "screening_note": "Judged on a very short unstructured abstract only. LLM citation screening with sensitivity and specificity is clearly reported; likely an Include if full text confirms human screening as the reference standard.",
+      "needs_human_review": true
+    },
+    {
+      "id": "14",
+      "decision": "Include",
+      "criteria": {
+        "llm_screening": "Yes",
+        "human_reference": "Yes",
+        "accuracy_reported": "Yes",
+        "original_study": "Yes"
+      },
+      "failed_criteria": [],
+      "primary_exclusion_reason": "N/A",
+      "eligibility_evidence": "LLM screening: “LLM-assisted screening was performed using ChatGPT-4o (OpenAI) and Claude-3.5 (Anthropic) sonnet”. Human reference: “Manual screening by 2 investigators served as the reference standard.” Accuracy: “Title and abstract screening achieved a pooled sensitivity of 0.73 (95% CI 0.57-0.85) and specificity of 0.99”. Original study: “We conducted a diagnostic study comparing the accuracy of LLM-assisted screening versus manual literature screening across 6 thoracic surgery meta-analyses.”",
+      "screening_note": "Judged on title/abstract only. Reports title/abstract and full-text screening accuracy separately, plus comparisons with ASReview and Abstrackr.",
+      "needs_human_review": false
+    },
+    {
+      "id": "15",
+      "decision": "Include",
+      "criteria": {
+        "llm_screening": "Yes",
+        "human_reference": "Yes",
+        "accuracy_reported": "Yes",
+        "original_study": "Yes"
+      },
+      "failed_criteria": [],
+      "primary_exclusion_reason": "N/A",
+      "eligibility_evidence": "LLM screening: “recommending inclusion/exclusion decisions during abstract screening”. Human reference: “indicating substantial agreement between human reviewers and LLM-based results”. Accuracy: “it achieved an average sensitivity of 90%, F1 score of 82, accuracy of 89%, and Cohen's κ of 0.71”. Original study: “We developed and validated a large language model (LLM)-assisted system for conducting systematic literature reviews”.",
+      "screening_note": "Judged on title/abstract only. Human-in-the-loop system for HTA reviews; specificity is not named in the abstract, but sensitivity is reported.",
+      "needs_human_review": false
+    }
+  ]
+}

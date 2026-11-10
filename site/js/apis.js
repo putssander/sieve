@@ -4,6 +4,7 @@
 
 import { getSettings } from "./store.js";
 import { sleep, cleanText, normDoi, htmlToText } from "./util.js";
+import { jatsToText, jatsHasBody } from "./jats.js";
 
 // ------------------------------------------------------------------ PubMed
 const EUTILS = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/";
@@ -25,7 +26,7 @@ function throttled(fn) {
 
 async function eutils(ep, params, { retries = 4 } = {}) {
   const s = getSettings();
-  const p = new URLSearchParams({ db: "pubmed", tool: "sieve", ...params });
+  const p = new URLSearchParams({ db: "pubmed", tool: "sieve", ...params });   // params.db overrides (e.g. "pmc")
   if (s.ncbiKey) p.set("api_key", s.ncbiKey);
   if (s.email) p.set("email", s.email);
   for (let i = 0; ; i++) {
@@ -57,6 +58,13 @@ export async function pmHits(q, pmids) {
   if (!pmids.length) return new Set();
   const ids = await pmIds(`(${q}) AND (${pmids.map(p => `${p}[pmid]`).join(" OR ")})`, pmids.length + 5);
   return new Set(ids);
+}
+
+// Europe PMC search (core metadata): used to find the published version of a preprint.
+export async function europePmcSearch(query, pageSize = 5) {
+  const r = await fetch(`https://www.ebi.ac.uk/europepmc/webservices/rest/search?format=json&resultType=core&pageSize=${pageSize}&query=${encodeURIComponent(query)}`);
+  if (!r.ok) throw new Error(`Europe PMC HTTP ${r.status}`);
+  return (await r.json()).resultList?.result || [];
 }
 
 // PMID for a DOI ("" when PubMed does not have it, e.g. preprints).
@@ -93,6 +101,10 @@ export async function pmFetch(pmids, onProgress) {
         abstract: cleanText(abs),
         year: t("PubDate Year") || t("PubDate MedlineDate").slice(0, 4),
         journal: t("Journal > Title"),
+        journal_abbr: t("Journal > ISOAbbreviation") || t("MedlineJournalInfo > MedlineTA"),
+        issn: [...a.querySelectorAll("Journal > ISSN")].map(n => n.textContent).join("; "),
+        volume: t("JournalIssue > Volume"), issue: t("JournalIssue > Issue"),
+        pages: t("Pagination > MedlinePgn") || t('ELocationID[EIdType="pii"]'),
         authors: [...a.querySelectorAll("AuthorList Author")].map(au => `${au.querySelector("LastName")?.textContent || au.querySelector("CollectiveName")?.textContent || ""}, ${au.querySelector("Initials")?.textContent || ""}`).join("; "),
         doi: normDoi(a.querySelector('ArticleId[IdType="doi"]')?.textContent || ""),
         mesh: [...a.querySelectorAll("MeshHeading > DescriptorName")].map(n => n.textContent),
@@ -145,10 +157,9 @@ export async function europePmcFullText(doi, pmid) {
   if (!hit?.pmcid || hit.isOpenAccess !== "Y") return { pmcid: hit?.pmcid || "", oa: false };
   const x = await fetch(`https://www.ebi.ac.uk/europepmc/webservices/rest/${hit.pmcid}/fullTextXML`);
   if (!x.ok) return { pmcid: hit.pmcid, oa: true };
-  const doc = new DOMParser().parseFromString(await x.text(), "text/xml");
-  doc.querySelectorAll("ref-list, table-wrap-foot, fig").forEach(n => n.remove());
-  const text = cleanText([doc.querySelector("article-title")?.textContent, doc.querySelector("abstract")?.textContent, doc.querySelector("body")?.textContent].join("\n"));
-  return { pmcid: hit.pmcid, oa: true, text, url: `https://europepmc.org/article/PMC/${hit.pmcid}` };
+  const xml = await x.text();
+  // Same conversion as the example builder (jats.js), so prompts are identical everywhere.
+  return { pmcid: hit.pmcid, oa: true, text: jatsHasBody(xml) ? jatsToText(xml) : "", url: `https://europepmc.org/article/PMC/${hit.pmcid}`, license: hit.license || "" };
 }
 
 export async function unpaywall(doi) {
@@ -157,7 +168,14 @@ export async function unpaywall(doi) {
   if (!r.ok) return null;
   const j = await r.json();
   const loc = j.best_oa_location;
-  return { is_oa: j.is_oa, pdf: loc?.url_for_pdf || "", landing: loc?.url_for_landing_page || "", status: j.oa_status };
+  return { is_oa: j.is_oa, pdf: loc?.url_for_pdf || "", landing: loc?.url_for_landing_page || "", status: j.oa_status,
+    locations: (j.oa_locations || []).map(l => ({ pdf: l.url_for_pdf || "", url: l.url || "", host: l.host_type || "", version: l.version || "" })) };
+}
+
+// PMC article text through NCBI E-utilities (allowed for author manuscripts and many PMC articles; CORS-enabled).
+export async function pmcText(pmcid) {
+  const xml = await eutils("efetch.fcgi", { db: "pmc", id: String(pmcid).replace(/^PMC/i, ""), retmode: "xml" });
+  return jatsHasBody(xml) ? jatsToText(xml) : "";
 }
 
 // ------------------------------------------------------------------ local helper (python -m sieve serve)

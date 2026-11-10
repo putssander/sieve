@@ -1,0 +1,53 @@
+Screen the 4 papers below for a systematic review.
+
+Review question: How accurate are large language models (LLMs) at title/abstract screening for systematic reviews, compared with human reviewers?
+
+Eligibility criteria:
+1. [llm_screening] LLM screens records: A large language model makes or suggests include/exclude decisions on titles/abstracts (or full texts) of a review.
+2. [human_reference] Compared with humans: The LLM's decisions are compared with human screening decisions as reference standard.
+3. [accuracy_reported] Accuracy reported: Sensitivity/recall and/or specificity (or the counts to compute them) are reported.
+4. [original_study] Original study: Primary evaluation study; not a review, commentary or tutorial. (if this fails: decision "Exclude, but save for snowballing")
+
+General rules:
+- Judge each criterion as Yes / No / Unclear from the source material only.
+- decision: Include only if every criterion is Yes. If any criterion is No, exclude (use the decision named in that criterion if given). If none is No but some are Unclear, use "Unclear" and set needs_human_review=true.
+- failed_criteria: only criteria that are No or Unclear, each with a SHORT verbatim quote (<= 25 words) copied from the source. If there is no exact quote, write "No direct quote available in provided source material." and set needs_human_review=true.
+- Be transparent when only the title/abstract is available.
+
+Return JSON {"results": [...]} with one object per paper, in the same order with exactly these keys: id, decision, criteria{llm_screening, human_reference, accuracy_reported, original_study}, failed_criteria[{criterion, evidence_quote, interpretation}], primary_exclusion_reason, eligibility_evidence, screening_note, needs_human_review.
+
+=== PAPER ===
+PAPER_ID: 24
+TITLE: Performance of a Large Language Model in Screening Citations
+YEAR: 2024
+AUTHORS: Oami T, Okada Y, Nakada TA.
+JOURNAL: JAMA network open
+DOI: 10.1001/jamanetworkopen.2024.20496
+ABSTRACT: Importance Large language models (LLMs) are promising as tools for citation screening in systematic reviews. However, their applicability has not yet been determined. Objective To evaluate the accuracy and efficiency of an LLM in title and abstract literature screening. Design, setting, and participants This prospective diagnostic study used the data from the title and abstract screening process for 5 clinical questions (CQs) in the development of the Japanese Clinical Practice Guidelines for Management of Sepsis and Septic Shock. The LLM decided to include or exclude citations based on the inclusion and exclusion criteria in terms of patient, population, problem; intervention; comparison; and study design of the selected CQ and was compared with the conventional method for title and abstract screening. This study was conducted from January 7 to 15, 2024. Exposures LLM (GPT-4 Turbo)-assisted citation screening or the conventional method. Main outcomes and measures The sensitivity and specificity of the LLM-assisted screening process was calculated, and the full-text screening result using the conventional method was set as the reference standard in the primary analysis. Pooled sensitivity and specificity were also estimated, and screening times of the 2 methods were compared. Results In the conventional citation screening process, 8 of 5634 publications in CQ 1, 4 of 3418 in CQ 2, 4 of 1038 in CQ 3, 17 of 4326 in CQ 4, and 8 of 2253 in CQ 5 were selected. In the primary analysis of 5 CQs, LLM-assisted citation screening demonstrated an integrated sensitivity of 0.75 (95% CI, 0.43 to 0.92) and specificity of 0.99 (95% CI, 0.99 to 0.99). Post hoc modifications to the command prompt improved the integrated sensitivity to 0.91 (95% CI, 0.77 to 0.97) without substantially compromising specificity (0.98 [95% CI, 0.96 to 0.99]). Additionally, LLM-assisted screening was associated with reduced time for processing 100 studies (1.3 minutes vs 17.2 minutes for conventional screening methods; mean difference, -15.25 minutes [95% CI, -17.70 to -12.79 minutes]). Conclusions and relevance In this prospective diagnostic study investigating the performance of LLM-assisted citation screening, the model demonstrated acceptable sensitivity and reasonably high specificity with reduced processing time. This novel method could potentially enhance efficiency and reduce workload in systematic reviews.
+
+=== PAPER ===
+PAPER_ID: 28
+TITLE: Enhancing title and abstract screening for systematic reviews with GPT-3.5 turbo
+YEAR: 2024
+AUTHORS: Kohandel Gargari O, Mahmoudi MH, Hajisafarali M, Samiee R.
+JOURNAL: BMJ evidence-based medicine
+DOI: 10.1136/bmjebm-2023-112678
+ABSTRACT: (no abstract available)
+
+=== PAPER ===
+PAPER_ID: 17
+TITLE: Using ChatGPT in Nursing: Scoping Review of Current Opinions
+YEAR: 2024
+AUTHORS: Zhou Y, Li SJ, Tang XY, He YC, Ma HM, Wang AQ, Pei RY, Piao MH.
+JOURNAL: JMIR medical education
+DOI: 10.2196/54297
+ABSTRACT: Background Since the release of ChatGPT in November 2022, this emerging technology has garnered a lot of attention in various fields, and nursing is no exception. However, to date, no study has comprehensively summarized the status and opinions of using ChatGPT across different nursing fields. Objective We aim to synthesize the status and opinions of using ChatGPT according to different nursing fields, as well as assess ChatGPT's strengths, weaknesses, and the potential impacts it may cause. Methods This scoping review was conducted following the framework of Arksey and O'Malley and guided by the PRISMA-ScR (Preferred Reporting Items for Systematic Reviews and Meta-Analyses extension for Scoping Reviews). A comprehensive literature research was conducted in 4 web-based databases (PubMed, Embase, Web of Science, and CINHAL) to identify studies reporting the opinions of using ChatGPT in nursing fields from 2022 to September 3, 2023. The references of the included studies were screened manually to further identify relevant studies. Two authors conducted studies screening, eligibility assessments, and data extraction independently. Results A total of 30 studies were included. The United States (7 studies), Canada (5 studies), and China (4 studies) were countries with the most publications. In terms of fields of concern, studies mainly focused on "ChatGPT and nursing education" (20 studies), "ChatGPT and nursing practice" (10 studies), and "ChatGPT and nursing research, writing, and examination" (6 studies). Six studies addressed the use of ChatGPT in multiple nursing fields. Conclusions As an emerging artificial intelligence technology, ChatGPT has great potential to revolutionize nursing education, nursing practice, and nursing research. However, researchers, institutions, and administrations still need to critically examine its accuracy, safety, and privacy, as well as academic misconduct and potential ethical issues that it may lead to before applying ChatGPT to practice.
+
+=== PAPER ===
+PAPER_ID: 18
+TITLE: Large Language Models for Chatbot Health Advice Studies: A Systematic Review
+YEAR: 2025
+AUTHORS: Huo B, Boyle A, Marfo N, Tangamornsuksan W, Steen JP, McKechnie T, Lee Y, Mayol J, Antoniou SA, Thirunavukarasu AJ, Sanger S, Ramji K, Guyatt G.
+JOURNAL: JAMA network open
+DOI: 10.1001/jamanetworkopen.2024.57879
+ABSTRACT: Importance There is much interest in the clinical integration of large language models (LLMs) in health care. Many studies have assessed the ability of LLMs to provide health advice, but the quality of their reporting is uncertain. Objective To perform a systematic review to examine the reporting variability among peer-reviewed studies evaluating the performance of generative artificial intelligence (AI)-driven chatbots for summarizing evidence and providing health advice to inform the development of the Chatbot Assessment Reporting Tool (CHART). Evidence review A search of MEDLINE via Ovid, Embase via Elsevier, and Web of Science from inception to October 27, 2023, was conducted with the help of a health sciences librarian to yield 7752 articles. Two reviewers screened articles by title and abstract followed by full-text review to identify primary studies evaluating the clinical accuracy of generative AI-driven chatbots in providing health advice (chatbot health advice studies). Two reviewers then performed data extraction for 137 eligible studies. Findings A total of 137 studies were included. Studies examined topics in surgery (55 [40.1%]), medicine (51 [37.2%]), and primary care (13 [9.5%]). Many studies focused on treatment (91 [66.4%]), diagnosis (60 [43.8%]), or disease prevention (29 [21.2%]). Most studies (136 [99.3%]) evaluated inaccessible, closed-source LLMs and did not provide enough information to identify the version of the LLM under evaluation. All studies lacked a sufficient description of LLM characteristics, including temperature, token length, fine-tuning availability, layers, and other details. Most studies (136 [99.3%]) did not describe a prompt engineering phase in their study. The date of LLM querying was reported in 54 (39.4%) studies. Most studies (89 [65.0%]) used subjective means to define the successful performance of the chatbot, while less than one-third addressed the ethical, regulatory, and patient safety implications of the clinical integration of LLMs. Conclusions and relevance In this systematic review of 137 chatbot health advice studies, the reporting quality was heterogeneous and may inform the development of the CHART reporting standards. Ethical, regulatory, and patient safety considerations are crucial as interest grows in the clinical integration of LLMs.

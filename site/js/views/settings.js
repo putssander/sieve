@@ -4,36 +4,56 @@ import { KINDS, CHAT_SITES, SIEVE_GPT_URL, testBackend, listModels, suggestModel
 import { card, btn, help, field, input, select, row, badge } from "../ui.js";
 import { localHealth, isLocalPage, localHelperAllowed } from "../apis.js";
 import { GPT_NAME, GPT_DESCRIPTION, GPT_STARTERS, gptInstructions, gptKnowledge } from "../gpt.js";
+import { disclosure } from "../disclosure.js";
+import { platformLogo, backendPlatform, sieveLogo } from "../brand.js";
+import { stageIcon } from "../icons.js";
 
 const MODEL_LIST_DAYS = 7;
 
 export async function render(m, ctx) {
   const s = getSettings();
   const save = () => setSettings(s);
-  m.append(h("header", { class: "page-head" }, h("h1", {}, "Models & keys"),
-    h("p", { class: "lead" }, "Choose how AI steps run. Everything here is stored only in this browser (localStorage) and is never part of an exported project.")));
+  m.append(h("header", { class: "settings-hero" },
+    h("div", { class: "settings-hero-copy" }, h("div", { class: "eyebrow" }, "Your workspace, your way"),
+      h("h1", {}, "Good research.", h("br"), h("span", {}, "Your favourite tools.")),
+      h("p", { class: "lead" }, "Use the chat you know. Connect an API for automatic batches. Or bring a model running on your own computer."),
+      h("a", { class: "settings-learn-link", href: "#/guide/options" }, stageIcon("info"), "Help me choose a setup", stageIcon("arrow"))),
+    h("div", { class: "settings-hero-art", "aria-hidden": "true" },
+      h("div", { class: "brand-art-orbit" }), sieveLogo("hero-sieve-mark"),
+      platformLogo("chatgpt", "orbit-openai"), platformLogo("claude", "orbit-claude"), platformLogo("ollama", "orbit-ollama"), platformLogo("lmstudio", "orbit-lmstudio"))),
+    h("div", { class: "settings-reassurance" }, h("span", {}, stageIcon("verify"), "Keys stay in this browser"),
+      h("span", {}, stageIcon("chat"), "Copy-paste needs no API key"), h("a", { href: "#/guide/options" }, "Costs & data sharing →")),
+    h("div", { class: "settings-section-head" }, h("div", {}, h("h2", {}, "Your connections"), h("p", {}, "Choose a default. You can switch routes for each task."))));
 
   // Model lists older than a week are refreshed in the background for API keys (never for local servers:
   // that would contact this device without asking).
   for (const b of s.backends) {
     if ((b.kind === "openai" || b.kind === "anthropic") && b.apiKey && (!b.modelsDate || Date.now() - Date.parse(b.modelsDate) > MODEL_LIST_DAYS * 864e5)) {
-      listModels(b).then(list => { b.models = list.map(x => x.id); b.modelsDate = today(); save(); ctx.rerender(); }).catch(() => {});
+      listModels(b).then(list => { b.models = list.map(x => x.id); b.modelsDate = today(); if (!b.model) b.model = suggestModel(b.kind, list); save(); ctx.rerender(); }).catch(() => {});
     }
   }
 
-  const list = h("div", { class: "grid2" });
+  const list = h("div", { class: "connections-grid" });
   for (const b of s.backends) list.append(backendCard(ctx, s, b, save));
   m.append(list);
 
-  m.append(card("Add a model route",
-    row(...Object.entries(KINDS).map(([kind, k]) => btn(`+ ${k.label}`, () => {
-      const id = `${kind}-${Date.now().toString(36)}`;
-      s.backends.push({ id, kind, label: kind === "manual" ? "Copy-paste to Claude" : kind === "openai" ? "OpenAI" : kind === "anthropic" ? "Claude API" : "Local model",
-        model: k.model, baseUrl: k.baseUrl, chat: kind === "manual" ? "claude" : undefined, batch: 5, concurrency: 2 });
-      save(); ctx.rerender();
-    }))),
-    help("Start with copy-paste. When you screen hundreds of records, an API key saves a lot of pasting: a few cents per paper for title/abstract screening. "
-      + "A key in a browser is visible to anyone using this browser profile; use a key with a spending limit.")));
+  const choices = [
+    ["chatgpt", "ChatGPT", "Copy & paste", "manual", { chat: "chatgpt", label: "Copy-paste to ChatGPT" }],
+    ["claude", "Claude", "Copy & paste", "manual", { chat: "claude", label: "Copy-paste to Claude" }],
+    ["openai", "OpenAI", "API connection", "openai", { label: "OpenAI API" }],
+    ["claude", "Claude", "API connection", "anthropic", { label: "Claude API" }],
+    ["ollama", "Ollama", "Local model", "compatible", { label: "Ollama", baseUrl: "http://localhost:11434/v1" }],
+    ["lmstudio", "LM Studio", "Local model", "compatible", { label: "LM Studio", baseUrl: "http://localhost:1234/v1" }],
+  ];
+  m.append(h("section", { class: "add-connections" },
+    h("div", { class: "settings-section-head" }, h("div", {}, h("h2", {}, "Make room for another tool"), h("p", {}, "Add a connection, then choose its settings."))),
+    h("div", { class: "connection-catalog" }, choices.map(([logo, title, subtitle, kind, options]) =>
+      btn([platformLogo(logo, "", true), h("span", {}, h("strong", {}, title), h("small", {}, subtitle)), h("span", { class: "catalog-plus", "aria-hidden": "true" }, "+")], () => {
+        const k = KINDS[kind];
+        const b = { id: `${kind}-${Date.now().toString(36)}`, kind, model: k.model, baseUrl: k.baseUrl, batch: 5, concurrency: 2, ...options };
+        s.backends.push(b); save(); ctx.rerender();
+        requestAnimationFrame(() => document.getElementById(`connection-${b.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" }));
+      }, "catalog-card")))));
 
   m.append(gptCard(ctx, s, save));
   m.append(await literatureCard(ctx, s, save));
@@ -50,7 +70,7 @@ function backendCard(ctx, s, b, save) {
     const best = suggestModel(b.kind, b.models.map(id => ({ id })));
     modelInfo.append(row(
       ok ? badge(`available · list of ${b.modelsDate}`, "ok") : badge(b.model ? `"${b.model}" is not offered for this key` : "no model chosen", "warn"),
-      best && best !== b.model && btn(`Use ${best}`, () => { b.model = best; save(); ctx.rerender(); }, "sm")));
+      best && best !== b.model && btn(`Use ${best}`, () => { b.model = best; b.modelChosen = true; save(); ctx.rerender(); }, "sm")));
   };
   const listId = `models-${b.id}`;
   const loadModels = async e => {
@@ -58,49 +78,69 @@ function backendCard(ctx, s, b, save) {
     e.target.disabled = true;
     try {
       const got = await listModels(b);
-      b.models = got.map(x => x.id); b.modelsDate = today(); save();
+      b.models = got.map(x => x.id); b.modelsDate = today();
+      // Not chosen by you (empty or an automatic pick that is no longer offered): take the newest.
+      // A model you chose yourself is kept and flagged below if this key no longer offers it.
+      if (!b.model || (!b.modelChosen && !b.models.includes(b.model))) b.model = suggestModel(b.kind, got);
+      save();
       toast(`${got.length} models available${got.length ? `; newest: ${got[0].id}` : ""}`);
       ctx.rerender();
     } catch (err) { toast(`Could not list models: ${err.message}`, "err"); e.target.disabled = false; }
   };
   drawModelInfo();
-  return card(null,
-    row(h("h3", { style: { margin: 0 } }, b.label), h("span", { class: "spacer" }),
-      active ? h("span", { class: "badge ok" }, "default") : btn("Make default", () => { s.activeBackend = b.id; save(); ctx.rerender(); }, "sm"),
-      s.backends.length > 1 && btn("Remove", () => { s.backends = s.backends.filter(x => x !== b); if (active) s.activeBackend = s.backends[0].id; save(); ctx.rerender(); }, "sm danger")),
-    h("p", { class: "muted small" }, k.label),
-    field("Name", input(b.label, v => { b.label = v; save(); })),
+  const platform = backendPlatform(b);
+  return h("section", { class: `connection-card connection-${platform}${active ? " is-default" : ""}`, id: `connection-${b.id}` },
+    h("div", { class: "connection-card-head" }, platformLogo(platform),
+      h("div", { class: "connection-identity" }, h("h3", {}, b.label), h("p", {}, b.kind === "manual" ? "Copy & paste · you send each prompt" : b.kind === "compatible" ? "Your model server" : "API · automatic batches")),
+      active && h("span", { class: "default-pill" }, stageIcon("verify"), "Default")),
+    h("div", { class: "connection-fields" },
     b.kind === "manual" && [
-      field("Chat site", select(b.chat || "chatgpt", Object.entries(CHAT_SITES).map(([v, c]) => [v, c.label]), v => { b.chat = v; save(); })),
-      field("Your own GPT link (optional)", input(b.gptUrl || "", v => { b.gptUrl = v.trim(); save(); }, { placeholder: "https://chatgpt.com/g/g-…" }),
-        "When set, \"Open ChatGPT\" opens this GPT instead. See \"Sieve GPT\" below."),
+      h("div", { class: "flabel" }, "Where do you like to chat?"),
+      h("div", { class: "chat-choice" }, Object.entries(CHAT_SITES).map(([id, chat]) =>
+        h("button", { type: "button", class: (b.chat || "chatgpt") === id ? "selected" : "", "aria-pressed": (b.chat || "chatgpt") === id, onclick: () => {
+          if (/^Copy-paste to (ChatGPT|Claude)$/.test(b.label)) b.label = `Copy-paste to ${chat.label}`;
+          b.chat = id; save(); ctx.rerender();
+        } }, platformLogo(id === "claude" ? "claude" : "chatgpt", "", true), chat.label))),
       field("Papers per prompt", input(b.batch ?? 5, v => { b.batch = Number(v) || 1; save(); }, { type: "number", min: 1, max: 30 }),
-        "5–10 works well for titles/abstracts; use 1–3 when you attach full-text PDFs."),
+        "Try 5–10 titles and abstracts, or 1–3 full-text PDFs."),
     ],
     b.kind !== "manual" && [
+      (k.needsKey || b.kind === "compatible") && field(k.needsKey ? "API key" : "API key (optional)", input(b.apiKey, v => {
+        b.apiKey = v.trim(); save();
+        clearTimeout(b._t);
+        if ((b.kind === "openai" || b.kind === "anthropic") && b.apiKey.length > 20) b._t = setTimeout(() => listModels(b).then(list => {
+          b.models = list.map(x => x.id); b.modelsDate = today(); if (!b.model) b.model = suggestModel(b.kind, list); delete b._t; save(); ctx.rerender();
+        }).catch(err => toast(`Could not list models: ${err.message}`, "err")), 800);
+      }, { type: "password", autocomplete: "off", placeholder: k.needsKey ? "Paste your provider key" : "Only if your server needs one" })),
       field("Model", h("div", {},
-        input(b.model, v => { b.model = v.trim(); save(); drawModelInfo(); }, { list: listId }),
+        input(b.model, v => { b.model = v.trim(); b.modelChosen = true; save(); drawModelInfo(); }, { list: listId, placeholder: b.kind === "openai" ? "paste the key, then Load available models" : "" }),
         h("datalist", { id: listId }, (b.models || []).map(id => h("option", { value: id })))),
         b.kind === "compatible" ? "the model name the server knows, e.g. qwen3:8b" : "Load the list to see which models your key can use (newest first)."),
       modelInfo,
       b.kind === "compatible" && field("Server URL", input(b.baseUrl, v => { b.baseUrl = v; save(); }),
         "Ollama http://localhost:11434/v1 · LM Studio http://localhost:1234/v1 · mlx_lm.server http://localhost:8080/v1 · Colab: the tunnel URL + /v1"),
       b.kind === "compatible" && !isLocalPage() && help("A server on this computer: Chrome will ask to let this site access apps and services on this device the first time you load the model list, test, or run. That request comes from this route only; allow it if you run the local server."),
-      (k.needsKey || b.kind === "compatible") && field(k.needsKey ? "API key" : "API key (optional)", input(b.apiKey, v => { b.apiKey = v.trim(); save(); }, { type: "password", autocomplete: "off" })),
-      b.kind === "anthropic" && field("Effort", select(b.effort || "medium", ["low", "medium", "high", "xhigh", "max"], v => { b.effort = v; save(); }), "low is cheaper and usually enough for title/abstract screening"),
-      field("Parallel requests", input(b.concurrency ?? 2, v => { b.concurrency = Number(v) || 1; save(); }, { type: "number", min: 1, max: 8 })),
-      row(btn("Load available models", loadModels, "sm"), btn("Test connection", async e => {
+      row(btn("Load models", loadModels, "sm"), btn("Test connection", async e => {
         e.target.disabled = true;
         try { const r = await testBackend(b); toast(`OK: ${JSON.stringify(r)}`); }
         catch (err) { toast(`Failed: ${err.message}${b.kind === "compatible" ? " (is the server running and does it allow this page's origin? see README)" : ""}`, "err"); }
         e.target.disabled = false;
       }, "sm")),
-    ]);
+    ],
+    disclosure("general", "Advanced settings", "",
+      field("Connection name", input(b.label, v => { b.label = v; save(); })),
+      b.kind === "manual" ? field("Your own GPT link (optional)", input(b.gptUrl || "", v => { b.gptUrl = v.trim(); save(); }, { placeholder: "https://chatgpt.com/g/g-…" }), "Opens your custom GPT when you choose ChatGPT.") : [
+        b.kind === "anthropic" && field("Effort", select(b.effort || "medium", ["low", "medium", "high", "xhigh", "max"], v => { b.effort = v; save(); }), "Higher effort can increase processing time and cost."),
+        field("Parallel requests", input(b.concurrency ?? 2, v => { b.concurrency = Number(v) || 1; save(); }, { type: "number", min: 1, max: 8 })),
+      ])),
+    h("div", { class: "connection-footer" },
+      active ? h("span", { class: "small muted" }, "Used by default in AI tasks") : btn("Make default", () => { s.activeBackend = b.id; save(); ctx.rerender(); }, "sm"),
+      s.backends.length > 1 && btn("Remove", () => { s.backends = s.backends.filter(x => x !== b); if (active) s.activeBackend = s.backends[0].id; save(); ctx.rerender(); }, "sm ghost danger")));
 }
 
 function gptCard(ctx, s, save) {
   const chatBackend = s.backends.find(b => b.kind === "manual");
-  return card("Sieve GPT in ChatGPT",
+  return disclosure("chat", "Sieve GPT in ChatGPT", "Optional custom assistant setup",
     help("A custom GPT that knows every Sieve task and always answers in Sieve's JSON, so pasting back works first time. It only sees what you paste: your project stays in this browser."),
     SIEVE_GPT_URL
       ? row(h("a", { class: "btn primary", href: SIEVE_GPT_URL, target: "_blank", rel: "noopener" }, "Open the Sieve GPT ↗"),
@@ -132,7 +172,7 @@ export function connectLocalHelper(ctx) {
 async function literatureCard(ctx, s, save) {
   const health = await localHealth();
   const allowed = localHelperAllowed();
-  return card("Literature APIs & local helper",
+  return disclosure("fulltext", "Literature APIs & local helper", "Optional contact details and full-text fetching",
     field("Your e-mail (sent to Crossref / Unpaywall / NCBI as contact, recommended)", input(s.email, v => { s.email = v.trim(); save(); }, { type: "email" })),
     field("NCBI API key (optional: 10 instead of 3 PubMed requests per second)", input(s.ncbiKey, v => { s.ncbiKey = v.trim(); save(); }),
       "Free from your NCBI account settings. Speeds up term-by-term search diagnostics."),

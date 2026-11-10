@@ -1,3 +1,5 @@
+import { stepIntro } from "../disclosure.js";
+import { termHelp } from "../explain.js";
 import { h, pickFile, toast, pdfToText, slug, clear } from "../util.js";
 import { readDocument } from "../docimport.js";
 import { blocksToText } from "../docx.js";
@@ -15,7 +17,7 @@ const FRAMEWORKS = {
 export function render(m, ctx) {
   const p = ctx.project, pr = p.protocol;
   const save = () => ctx.save();
-  m.append(h("p", { class: "lead" }, "The protocol drives everything after it: the search assistant uses the question and PICO, "
+  m.append(stepIntro("protocol", "The protocol drives everything after it: the search assistant uses the question and PICO, "
     + "and every screening prompt is built from the criteria below."));
 
   m.append(documentsCard(ctx));
@@ -25,6 +27,7 @@ export function render(m, ctx) {
   m.append(card("Review",
     field("Project name", input(p.name, v => { p.name = v; save(); })),
     field("Review question", textarea(pr.question, v => { pr.question = v; save(); }, { rows: 3 })),
+    help("A ", termHelp("framework", "question framework"), " helps you break a broad topic into clear parts."),
     row(field("Review type", select(pr.review_type, ["systematic", "scoping", "rapid", "umbrella"], v => { pr.review_type = v; save(); })),
       field("Framework", select(pr.framework, Object.keys(FRAMEWORKS), v => {
         pr.framework = v;
@@ -52,7 +55,7 @@ export function render(m, ctx) {
     })));
   }
   renderCriteria();
-  m.append(card("Eligibility criteria", help("A record is included only if every criterion is met. Write each one so that a screener (human or model) can decide it from a title/abstract or full text."),
+  m.append(card(termHelp("eligibility"), help("A record is included only if every criterion is met. Write each one so that a screener (human or model) can decide it from a title/abstract or full text."),
     crit,
     field("Extra screening rules (shown to the model as-is)", textarea(p.screening_rules, v => { p.screening_rules = v; save(); }, { rows: 6, class: "code",
       placeholder: "- Clinical topic does not imply a clinical data source.\n- Reviews: exclude but save for snowballing." }))));
@@ -80,7 +83,7 @@ function documentsCard(ctx) {
   };
   return h("section", { class: "card start-doc" },
     h("h3", {}, "Start from a document"),
-    help("Already have a search ticket, protocol, PICO form or proposal? Load it (.docx, .pdf, .txt) and Sieve fills in what it finds: the review question, PICO elements, "
+    help("Already have a search ticket, protocol, PICO form, proposal or a criteria flowchart (image)? Load it (.docx, .pdf, .txt, .png/.jpg) and Sieve fills in what it finds: the review question, PICO elements, "
       + "known articles (PMIDs/DOIs → validation or hold-out set) and search tables (→ step 2, with translations for Embase, Web of Science, PsycInfo and ACM). "
       + "You see the list first. The assistant can then draft the eligibility criteria from the same document."),
     row(btn("Load document…", load, "primary"), btn("Attach without filling in", attachOnly, "ghost")),

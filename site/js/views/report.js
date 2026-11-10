@@ -1,3 +1,5 @@
+import { stepIntro } from "../disclosure.js";
+import { termHelp } from "../explain.js";
 import { h, download, copy, fmt } from "../util.js";
 import { card, btn, help, row, table } from "../ui.js";
 import { exportProject } from "../store.js";
@@ -27,9 +29,9 @@ function counts(p) {
 
 export function render(m, ctx) {
   const p = ctx.project, c = counts(p);
-  m.append(h("p", { class: "lead" }, "Numbers for the PRISMA 2020 flow diagram, a draft methods paragraph built from what was actually run, and the exports."));
+  m.append(stepIntro("report", "Numbers for the PRISMA 2020 flow diagram, a draft methods paragraph built from what was actually run, and the exports."));
   if (c.taHuman < c.screened) m.append(help(`Note: ${c.screened - c.taHuman} of ${c.screened} title/abstract decisions are model-only (no human decision yet); they count where the models agree.`));
-  m.append(card("PRISMA 2020 flow", h("div", { class: "prisma" }, prisma(c)),
+  m.append(card(termHelp("prisma", "PRISMA 2020 flow"), h("div", { class: "prisma" }, prisma(c)),
     row(btn("Download SVG", () => download(`${p.id}-prisma.svg`, prisma(c).outerHTML, "image/svg+xml")))));
   m.append(card("Methods (draft)", h("p", {}, methods(p, c)), row(btn("Copy", () => copy(methods(p, c))))));
   m.append(card("Search strategy appendix",
@@ -51,6 +53,7 @@ function methods(p, c) {
   return [
     last ? `The search strategy was developed in PubMed as ${p.search.blocks.filter(b => b.enabled !== false && b.role !== "exclude").length} concept blocks and tested iteratively (${p.search.versions.length} versions) against a validation set of ${val} known relevant articles${ho ? ` and a hold-out set of ${ho} articles not used during development` : ""}. The final version (${last.name}, ${last.date}) retrieved ${fmt(last.count)} PubMed records and ${last.recall} validation articles${last.holdout ? ` and ${last.holdout} hold-out articles` : ""}.` : "",
     c.identified ? `${fmt(c.identified)} records were identified (${Object.entries(c.bySource).map(([s, n]) => `${s}: ${fmt(n)}`).join("; ")}); after removing ${fmt(c.duplicates)} duplicates, ${fmt(c.screened)} records were screened on title and abstract.` : "",
+    c.duplicates ? `Duplicates were identified following the method of Bramer et al. (2016), adapted: DOI and PMID matches, then author, year, title, journal, volume, issue and (normalised) page combinations from strict to loose; ${fmt(c.duplicates - p.records.filter(r => r.dup_manual === "dup").length)} duplicates were linked automatically and ${fmt(p.records.filter(r => r.dup_manual === "dup").length)} after manual review.` : "",
     Object.keys(p.resolve).length ? `DOIs, titles and publication years were checked against Crossref before screening.` : "",
     runs.length ? `Screening against ${p.criteria.length} predefined eligibility criteria was supported by large language models (${models.join(", ")}) using an identical prompt and output schema; each model judged every criterion with verbatim evidence quotes, which were automatically checked against the source text. Disagreements between models and between models and the reviewer were resolved by the reviewer.` : "",
     c.included ? `${fmt(c.included)} studies were included.` : "",

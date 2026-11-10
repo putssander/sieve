@@ -1,14 +1,17 @@
+import { stepIntro } from "../disclosure.js";
+import { termHelp } from "../explain.js";
 import { h, clear, toast, pickFile, parseCsv, normDoi, normTitle, cleanText, fmt, download, toCsv, XLSX } from "../util.js";
 import { card, btn, help, field, input, row, table, progress, modal, badge, select } from "../ui.js";
 import { pmQuery } from "../query.js";
 import { pmCount, pmIds, pmFetch } from "../apis.js";
-import { dedupeRecords, nearDuplicates, sourceOverlap, recallBySource, knownArticles, guessSource } from "../dedup.js";
+import { dedupe as runDedupe, RULES, sourceOverlap, recallBySource, knownArticles, guessSource } from "../dedup.js";
+import { parseExport } from "../bibparse.js";
 
 export const active = p => p.records.filter(r => !r.duplicate_of);
 
 export function render(m, ctx) {
   const p = ctx.project;
-  m.append(h("p", { class: "lead" }, "Bring the search results together: export them from each database (RIS works for Ovid, Embase, Web of Science, Scopus, EndNote, Zotero) "
+  m.append(stepIntro("records", "Bring the search results together: export them from each database (RIS works for Ovid, Embase, Web of Science, Scopus, EndNote, Zotero) "
     + "or fetch them straight from PubMed. Duplicates are linked, not deleted, so the PRISMA numbers stay traceable."));
 
   const prog = progress();
@@ -42,40 +45,48 @@ export function render(m, ctx) {
 // ------------------------------------------------------------------ overlap & near-duplicates
 function overlapCard(ctx) {
   const p = ctx.project;
+  const before = p.records.filter(r => r.duplicate_of).length;
+  const res = runDedupe(p.records, { distinct: p.dedup_distinct || [] });
+  if (res.linked !== before) ctx.save();
   const rows = sourceOverlap(p.records);
-  const exclude = new Set(p.dedup_distinct || []);
-  const pairs = nearDuplicates(p.records).filter(x => !exclude.has(`${x.a}|${x.b}`));
   const byRid = new Map(p.records.map(r => [r.rid, r]));
+  const decide = (x, same) => {
+    if (same) { const b = byRid.get(x.b); b.duplicate_of = x.a; b.dup_manual = "dup"; b.dup_rule = x.rule; }
+    else (p.dedup_distinct ||= []).push(`${x.a}|${x.b}`);
+    ctx.save(); ctx.rerender();
+  };
+  const auto = Object.entries(res.byRule).filter(([k]) => k !== "manual");
   return card("Duplicates across databases",
-    help("Exact duplicates (same DOI, PMID, or title + year) are linked automatically; the first imported record is kept. ",
-      "\"Already found\" = records an earlier database also returned; \"only here\" = what this database adds."),
+    help("Method: Bramer et al. 2016 (J Med Libr Assoc 104:240), adapted: page numbers are normalised (1008-12 → 1008-1012), then field combinations are compared from strict to loose. ",
+      "Strict matches are linked automatically (the first imported record is kept); the cases the method checks by hand are listed below. Details: docs/deduplication.md."),
+    h("p", { class: "small" }, h("strong", {}, "Linked automatically: "), auto.length ? auto.map(([k, n]) => `${RULES[k]?.label || k} ${RULES[k]?.what ? `(${RULES[k].what})` : ""}: ${n}`).join(" · ") : "none",
+      res.byRule.manual ? ` · confirmed by you: ${res.byRule.manual}` : ""),
     table([
       { label: "Database", render: o => o.source },
       { label: "Imported", cls: "num", render: o => fmt(o.imported) },
       { label: "Already found", cls: "num", render: o => fmt(o.duplicates) },
       { label: "Only here", cls: "num", render: o => fmt(o.unique) },
     ], rows),
-    pairs.length ? h("div", {},
-      h("h4", {}, `${pairs.length} possible duplicate${pairs.length > 1 ? "s" : ""} to check`),
-      help("Very similar titles that the exact rules did not link (typos, punctuation, preprint vs. journal year)."),
+    res.review.length ? h("div", {},
+      h("h4", {}, `${res.review.length} possible duplicate${res.review.length > 1 ? "s" : ""} to check`),
       table([
-        { label: "Similarity", render: x => badge(`${Math.round(x.sim * 100)}%`, x.sim > 0.97 ? "warn" : "") },
-        { label: "Record A", cls: "title", render: x => desc(byRid.get(x.a)) },
-        { label: "Record B", cls: "title", render: x => desc(byRid.get(x.b)) },
-        { label: "", render: x => row(
-          btn("Same paper", () => { const b = byRid.get(x.b); b.duplicate_of = x.a; b.dup_manual = "dup"; ctx.save(); ctx.rerender(); }, "sm"),
-          btn("Different", () => { (p.dedup_distinct ||= []).push(`${x.a}|${x.b}`); ctx.save(); ctx.rerender(); }, "ghost sm")) },
-      ], pairs, { limit: 50 })) : help("No possible duplicates left to check."));
+        { label: "Rule", render: x => h("span", {}, badge(RULES[x.rule]?.label || x.rule, x.rule === "doi" || x.rule === "pmid" ? "warn" : ""), h("div", { class: "muted small" }, RULES[x.rule]?.what || "")) },
+        { label: "Why check", cls: "small", render: x => x.reason },
+        { label: "Kept record", cls: "title", render: x => desc(byRid.get(x.a)) },
+        { label: "Possible duplicate", cls: "title", render: x => desc(byRid.get(x.b)) },
+        { label: "", render: x => row(btn("Same paper", () => decide(x, true), "sm"), btn("Different", () => decide(x, false), "ghost sm")) },
+      ], res.review, { limit: 100 })) : help("No possible duplicates left to check."));
 }
-const desc = r => (r ? h("span", {}, r.title, h("div", { class: "muted small" }, [r.year, r.source, r.doi].filter(Boolean).join(" · "))) : "");
+const desc = r => (r ? h("span", {}, r.title, h("div", { class: "muted small" },
+  [r.authors && String(r.authors).split(";")[0], r.year, r.journal_abbr || r.journal, r.volume && `${r.volume}${r.issue ? `(${r.issue})` : ""}`, r.pages && `p. ${r.pages}`, r.source, r.doi].filter(Boolean).join(" · "))) : "");
 
 // ------------------------------------------------------------------ recall per database
 function recallCard(ctx) {
   const p = ctx.project;
   const known = knownArticles(p);
-  if (!known.length) return card("Recall per database", help("Add validation and hold-out articles in step 2 (Search → Known articles): each database export is then checked against them."));
+  if (!known.length) return card(termHelp("recall", "Recall per database"), help("Add known relevant papers in step 2 (Search → Known articles). Sieve can then check whether each database export contains them."));
   const R = recallBySource(p.records, known);
-  return card("Recall per database (validation & hold-out articles)",
+  return card(termHelp("recall", "Recall per database (known-paper check)"),
     help("Checks every database export against the known articles (by PMID, DOI or title). A miss means the translated search string, or the database's coverage, "
       + "misses that article: open it in the database to see whether it is indexed there, and if so adjust that database's string in step 2."),
     h("div", { class: "stats" }, R.summary.map(s => h("div", { class: "stat" }, h("b", {}, `${s.found}/${s.total}`), h("span", {}, s.source)))),
@@ -95,7 +106,7 @@ function recordTable(p) {
     const rows = s ? p.records.filter(r => `${r.title} ${r.authors} ${r.doi} ${r.pmid} ${r.rid}`.toLowerCase().includes(s)) : p.records;
     return table([
       { label: "ID", render: r => r.rid },
-      { label: "Title", cls: "title", render: r => h("span", {}, r.title, r.duplicate_of && h("span", {}, " ", badge(`duplicate of ${r.duplicate_of}`, "warn"))) },
+      { label: "Title", cls: "title", render: r => h("span", {}, r.title, r.duplicate_of && h("span", {}, " ", badge(`duplicate of ${r.duplicate_of}${r.dup_manual === "dup" ? " · by you" : r.dup_rule ? ` · rule ${RULES[r.dup_rule]?.label || r.dup_rule}` : ""}`, "warn"))) },
       { label: "Year", render: r => r.year },
       { label: "DOI / PMID", render: r => r.doi || r.pmid || "" },
       { label: "Abstract", render: r => (r.abstract ? `${Math.round(r.abstract.length / 100) / 10}k` : h("span", { class: "muted" }, "–")) },
@@ -124,9 +135,11 @@ export function addRecords(ctx, recs, source) {
     p.records.push({ ...r, rid, doi: normDoi(r.doi), title: cleanText(r.title), abstract: cleanText(r.abstract), source: r.source || source });
   }
   const before = p.records.filter(r => r.duplicate_of).length;
-  const dups = dedupeRecords(p.records);
+  const res = runDedupe(p.records, { distinct: p.dedup_distinct || [] });
+  const dups = res.linked;
+  p.dedup_review = res.review.length;
   ctx.save();
-  toast(`Added ${recs.length} records from ${source} · ${dups - before > 0 ? `${dups - before} already found in earlier imports` : "no duplicates of earlier imports"}`);
+  toast(`Added ${recs.length} records from ${source} · ${dups - before > 0 ? `${dups - before} already found in earlier imports` : "no duplicates of earlier imports"}${res.review.length ? ` · ${res.review.length} possible duplicates to check` : ""}`);
   ctx.rerender();
 }
 
@@ -151,28 +164,12 @@ async function importPmids(ctx, prog) {
   catch (e) { toast(e.message, "err"); }
 }
 
-export function parseRis(text) {
-  const recs = [];
-  let cur = null;
-  for (const line of text.split(/\r?\n/)) {
-    const m = line.match(/^([A-Z][A-Z0-9])  - ?(.*)$/);
-    if (!m) { if (cur && cur._last && line.trim()) cur[cur._last] += " " + line.trim(); continue; }
-    const [, tag, val] = m;
-    if (tag === "TY") { cur = { authors: [], _last: null }; continue; }
-    if (tag === "ER") { if (cur) { cur.authors = cur.authors.join("; "); delete cur._last; recs.push(cur); } cur = null; continue; }
-    if (!cur) continue;
-    if (tag === "DB" || tag === "DP") cur.db = val.trim();
-    const map = { TI: "title", T1: "title", AB: "abstract", N2: "abstract", PY: "year", Y1: "year", DA: "year", DO: "doi", JO: "journal", JF: "journal", T2: "journal", UR: "link", AN: "accession", ID: "rid" };
-    if (tag === "AU" || tag === "A1") cur.authors.push(val.trim());
-    else if (map[tag]) { const k = map[tag]; if (!cur[k] || k === "abstract") cur[k] = cur[k] && k === "abstract" ? `${cur[k]} ${val}` : val.trim(); cur._last = k; }
-  }
-  // PubMed / Ovid MEDLINE exports put the PMID in the accession number; Embase's accession numbers are not PMIDs.
-  return recs.map(({ accession, db, ...r }) => ({ ...r, pmid: !/embase/i.test(db || "") && /^\d{5,9}$/.test(accession || "") ? accession : "", year: String(r.year || "").slice(0, 4), rid: undefined }));
-}
+export { parseRis } from "../bibparse.js";
 
 const COLS = { title: ["title", "ti", "article title", "titel"], abstract: ["abstract", "ab"], authors: ["authors", "author", "au", "auteurs"],
   year: ["year", "py", "publication year", "jaar"], doi: ["doi", "do"], pmid: ["pmid", "pubmed id"], journal: ["journal", "source", "so", "source title"],
-  link: ["link", "url"], rid: ["record_id", "id", "record id", "covidence #"] };
+  link: ["link", "url"], rid: ["record_id", "id", "record id", "covidence #"], volume: ["volume", "vl", "vol"], issue: ["issue", "is", "number"],
+  pages: ["pages", "page", "pg", "sp"], issn: ["issn", "sn"] };
 
 async function importFile(ctx, kind) {
   const f = await pickFile(kind === "ris" ? ".ris,.txt,.nbib" : ".csv,.tsv,.xlsx,.xls");
@@ -180,8 +177,8 @@ async function importFile(ctx, kind) {
   try {
     if (kind === "ris") {
       const text = await f.text();
-      const recs = parseRis(text);
-      if (!recs.length) throw new Error("no RIS records found (expects TY - ... ER - blocks)");
+      const recs = parseExport(text);
+      if (!recs.length) throw new Error("no records found (expects RIS: TY - ... ER - blocks, or MEDLINE/PubMed format: PMID- ...)");
       const source = prompt("Which database is this export from? (used for the per-database counts and recall)", guessSource(f.name, text));
       if (source === null) return;
       return addRecords(ctx, recs, source || f.name);
@@ -214,8 +211,9 @@ function mapColumns(ctx, rows, name) {
 }
 
 function dedupe(ctx) {
-  const n = dedupeRecords(ctx.project.records);
-  ctx.save(); toast(`${n} duplicates linked`); ctx.rerender();
+  const p = ctx.project;
+  const res = runDedupe(p.records, { distinct: p.dedup_distinct || [] });
+  ctx.save(); toast(`${res.linked} duplicates linked · ${res.review.length} to check`); ctx.rerender();
 }
 
 async function completeAbstracts(ctx, prog) {

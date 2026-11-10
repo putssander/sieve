@@ -1,6 +1,9 @@
+import { stepIntro } from "../disclosure.js";
+import { termHelp } from "../explain.js";
 import { h, toast, fmt, titleSimilarity, normDoi, cleanText, pool } from "../util.js";
 import { card, btn, help, row, table, progress, badge, modal } from "../ui.js";
-import { crossref, crossrefByTitle, crossrefYears, doiToPmid } from "../apis.js";
+import { crossref, crossrefByTitle, crossrefYears, doiToPmid, europePmcSearch } from "../apis.js";
+import { isPreprintDoi, publishedFromEuropePmc, usePublishedVersion } from "../preprint.js";
 import { active } from "./records.js";
 
 const NON_ARTICLE = new Set(["journal-issue", "book", "proceedings", "dataset", "reference-book", "report", "standard", "peer-review", "grant", "posted-content"]);
@@ -9,7 +12,7 @@ const TITLE_MATCH = 0.6;
 export function render(m, ctx) {
   const p = ctx.project;
   const recs = active(p);
-  m.append(h("p", { class: "lead" }, "Check every record against Crossref before screening: does the DOI belong to this title and year, is it a journal article, "
+  m.append(stepIntro("verify", "Check every record against Crossref before screening: does the DOI belong to this title and year, is it a journal article, "
     + "and do several records share one (wrong) link? A spreadsheet in which three different papers share one link means at least two of them were screened on the wrong text."));
   const prog = progress();
   const done = recs.filter(r => p.resolve[r.rid]).length;
@@ -24,7 +27,7 @@ export function render(m, ctx) {
     table([
       { label: "ID", render: r => r.rid },
       { label: "Title", cls: "title", render: r => r.title },
-      { label: "DOI", render: r => r.doi || h("span", { class: "muted" }, "–") },
+      { label: termHelp("doi"), render: r => r.doi || h("span", { class: "muted" }, "–") },
       { label: "Title match", cls: "num", render: r => { const v = p.resolve[r.rid]; return v?.title_similarity === null || v?.title_similarity === undefined ? "–" : badge(v.title_similarity.toFixed(2), v.title_match ? "ok" : "err"); } },
       { label: "Year", render: r => { const v = p.resolve[r.rid]; return v?.year_match === false ? badge(`${r.year} ≠ ${v.crossref_years.join("/")}`, "err") : v?.year_match ? "✓" : "–"; } },
       { label: "Type", render: r => p.resolve[r.rid]?.crossref_type || "" },
@@ -50,7 +53,25 @@ export async function check(r) {
     if (best && best.sim >= 0.9) { out.suggested_doi = best.it.DOI.toLowerCase(); out.notes = `Crossref title match (${best.sim}): ${best.it.title?.[0]}`; }
     return out;
   }
+  const server = isPreprintDoi(doi);
   const msg = await crossref(doi).catch(() => null);
+  if (server || msg?.type === "posted-content") {
+    // Preprint: look for the peer-reviewed version (Crossref link first, then Europe PMC by DOI and by title).
+    out.flags.push(`preprint:${server || "posted-content"}`);
+    const rel = msg?.relation?.["is-preprint-of"]?.find(x => x["id-type"] === "doi")?.id;
+    let pub = null;
+    if (rel) {
+      const m2 = await crossref(rel).catch(() => null);
+      if (m2) pub = { title: cleanText(m2.title?.[0]), journal: m2["container-title"]?.[0] || "", year: String(crossrefYears(m2)[0] || ""), volume: m2.volume || "", issue: m2.issue || "",
+        pages: m2.page || "", doi: rel.toLowerCase(), pmid: "", pmcid: "", via: "Crossref is-preprint-of" };
+    }
+    if (!pub) pub = publishedFromEuropePmc(await europePmcSearch(`DOI:"${doi}"`).catch(() => []), r.title);
+    if (!pub && r.title) pub = publishedFromEuropePmc(await europePmcSearch(`TITLE:"${r.title.replace(/"/g, "")}"`).catch(() => []), r.title);
+    if (pub) { out.published = pub; out.flags.push("published_version_found"); }
+    out.notes = pub ? `Preprint; published as ${pub.journal} ${pub.year}${pub.pages ? `:${pub.pages}` : ""} (${pub.pmid ? `PMID ${pub.pmid}` : pub.doi}). Use the published version (criterion: peer-reviewed full text).`
+      : "Preprint; no published version found. Check whether a peer-reviewed version exists.";
+    if (!msg) return out;
+  }
   if (!msg) { out.flags.push("doi_not_found"); out.notes = "DOI does not resolve in Crossref (DataCite DOIs and some preprints are not in Crossref)."; return out; }
   out.crossref_title = cleanText(msg.title?.[0]);
   out.crossref_years = crossrefYears(msg);
@@ -68,7 +89,7 @@ export async function check(r) {
   if (/supplement/i.test(String(msg.issue || "")) || /abstracts|poster/i.test(msg["container-title"]?.[0] || "")) out.flags.push("possible_abstract_or_supplement");
   if (/^(erratum|correction|corrigendum)\b/i.test(out.crossref_title)) out.flags.push("erratum");
   if (!r.pmid) r.pmid = await doiToPmid(doi).catch(() => "");
-  out.notes = out.flags.length ? "Check the flags before trusting earlier decisions on this record." : "Consistent with the record.";
+  out.notes ||= out.flags.length ? "Check the flags before trusting earlier decisions on this record." : "Consistent with the record.";
   return out;
 }
 
@@ -91,6 +112,14 @@ function detail(ctx, r) {
     v.suggested_doi && row(btn(`Use suggested DOI ${v.suggested_doi}`, async () => {
       r.doi = v.suggested_doi; ctx.project.resolve[r.rid] = await check(r); ctx.save(); close(); ctx.rerender();
     }, "primary")),
+    v.published && h("div", { class: "block" }, h("strong", {}, "Published version: "), `${v.published.title} · ${v.published.journal} ${v.published.year}${v.published.pages ? `:${v.published.pages}` : ""} · `,
+      v.published.pmid ? `PMID ${v.published.pmid}` : "", v.published.doi ? ` · doi ${v.published.doi}` : " · no DOI of its own", h("div", { class: "muted small" }, `found via ${v.published.via}`),
+      row(btn("Use the published version", async () => {
+        usePublishedVersion(r, v.published);
+        ctx.project.resolve[r.rid] = { ...v, flags: v.flags.filter(f => !f.startsWith("preprint") && f !== "published_version_found"), notes: r.version_note };
+        ctx.save(); close(); ctx.rerender();
+        toast("Record now points to the published version; get its full text in step 5");
+      }, "primary"))),
     v.title_match === false && help("Title mismatch: the DOI probably belongs to another paper. Correct the DOI in the record (step 3) or exclude the record."),
   );
   const close = modal(`Record ${r.rid}`, body, { wide: true });

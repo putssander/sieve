@@ -1,0 +1,34 @@
+{
+  "id": "14",
+  "fields": {
+    "llms": {
+      "value": "ChatGPT-4o (OpenAI); Claude-3.5 Sonnet (Anthropic); Gemini-1.5 Pro (Google, used to resolve discrepancies)",
+      "quote": "2 LLMs, ChatGPT-4o (OpenAI) and Claude-3.5 sonnet (Anthropic), were used as independent reviewers to independently screen titles and abstracts."
+    },
+    "prompting": {
+      "value": "Criteria in prompt (PICOS-based, tabular output); ensemble of 2 LLMs as independent reviewers with a third LLM resolving discrepancies; post hoc revised prompts with chain-of-thought and relaxed criteria, 3 iterations (eligible if included in any)",
+      "quote": "instructed the LLM to perform screening based on the Population, Intervention, Control, Outcome, and Study design (PICOS) framework criteria defined for each topic study"
+    },
+    "dataset": {
+      "value": "6 thoracic surgery meta-analyses comparing sublobar resection and lobectomy (searches and criteria replicated for a new round of retrieval)",
+      "quote": "comparing the accuracy of LLM-assisted screening versus manual literature screening across 6 thoracic surgery meta-analyses"
+    },
+    "n_records": {
+      "value": "4538 in total (357; 462; 296; 429; 2,298; 696 for studies 1-6; total summed by extractor)",
+      "quote": "the initial search yielded 357, 462, 296, 429, 2,298, and 696 papers for studies 1-6, respectively."
+    },
+    "sensitivity": {
+      "value": "0.98 (95% CI 0.74-1.00), revised prompts, post hoc, primary analysis (final inclusion after full-text)",
+      "quote": "The overall sensitivity and specificity across these 6 studies in the primary analysis were 0.98 (95% CI 0.74-1.00) and 0.98 (95% CI 0.94-0.99), respectively"
+    },
+    "specificity": {
+      "value": "0.98 (95% CI 0.94-0.99), revised prompts, post hoc, primary analysis (final inclusion after full-text)",
+      "quote": "Post hoc revisions improved sensitivity to 0.98 (95% CI 0.74-1.00) while maintaining high specificity (0.98, 95% CI 0.94-0.99)."
+    },
+    "workload": {
+      "value": "NR",
+      "quote": ""
+    }
+  },
+  "notes": "Best-performing configuration is the post hoc revised (chain-of-thought, relaxed criteria, 3 iterations) prompts, evaluated against final inclusion (primary analysis); prompts were revised after reviewing false negatives, so this result is post hoc (AUC 1.00, 95% CI 0.99-1.00). Original prompts: full-text level (primary) pooled sensitivity 0.87 (95% CI 0.77-0.99), specificity 0.96 (95% CI 0.91-0.98), AUC 0.96; title/abstract stage (secondary) pooled sensitivity 0.73 (95% CI 0.57-0.85), specificity 0.99 (95% CI 0.97-0.99), AUC 0.97. Title/abstract results with revised prompts are only in the supplement (not in text). Per-study primary sensitivities ranged 0.69-1.00. Comparators: ASReview sensitivity 0.58, specificity 0.97 (AUC 0.66); Abstrackr sensitivity 0.48, specificity 0.96 (AUC 0.78). Reference standard: 2 independent human reviewers with third-reviewer adjudication. LLMs accessed via web interface, not API. n_records total is the sum of per-study deduplicated counts (not stated as a total in the paper). Workload: only qualitative claim ('reducing workload without sacrificing quality') and a cited tenfold time reduction from another study; no quantified workload saving reported. Post hoc meta-analysis found pooled effect sizes comparable with conventional screening, except lymph node dissection (study 3) and overall survival (study 5) outcomes."
+}

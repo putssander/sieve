@@ -9,7 +9,7 @@ import { SYSTEM_SEARCH, documentImportPrompt, documentImportSchema } from "../pr
 import { pmSummaries, pmidForDoi } from "../apis.js";
 
 export async function pickDocument() {
-  const f = await pickFile(".docx,.pdf,.txt,.md");
+  const f = await pickFile(".docx,.pdf,.txt,.md,.png,.jpg,.jpeg,.webp");
   if (!f) return null;
   const blocks = await readDocument(f.name, await f.arrayBuffer(), { pdfToText });
   return analyzeDocument(blocks, { name: f.name });
@@ -69,7 +69,8 @@ export function importDialog(ctx, a, opts = {}) {
     ? h("div", { class: "import-item" }, h("strong", {}, a.answer ? "Answer from the chat" : "✓ Read by the assistant"),
       a.answer && h("p", { class: "answer-text" }, a.answer), a.notes && help(`Notes: ${a.notes}`))
     : h("div", { class: "import-item assist" },
-      h("strong", {}, nothing ? "Nothing recognised automatically: let ChatGPT or Claude read it" : "Let ChatGPT or Claude read the whole document (recommended)"),
+      h("strong", {}, a.image ? "An image (e.g. a criteria flowchart): let ChatGPT or Claude read it" : nothing ? "Nothing recognised automatically: let ChatGPT or Claude read it" : "Let ChatGPT or Claude read the whole document (recommended)"),
+      a.image && help(h("strong", {}, "Attach the image in the chat"), " together with the prompt: Sieve cannot read images itself."),
       help("Copy one prompt, paste it in the chat, paste the JSON answer back. The assistant also drafts the eligibility criteria, finds articles and strategies "
         + "the quick scan missed, and points out inconsistencies (e.g. line numbers that do not add up). You review the result here before anything changes."),
       row(btn("Read with the assistant (copy-paste)", () => assistant(ctx, a, close, opts), "primary")));
@@ -161,7 +162,7 @@ function assistant(ctx, a, closeDialog, opts) {
   close = modal(`Read ${a.name} with the assistant`, runPanel({
     title: "document-import", system: SYSTEM_SEARCH, batchable: false, runName: "document-reader",
     items: [{ id: "document", label: a.name }],
-    build: () => ({ prompt: documentImportPrompt(a.text, a.name), schema: documentImportSchema, name: "document" }),
+    build: () => ({ prompt: documentImportPrompt(a.image ? `(The document is the image attached to this message, "${a.name}". Read it from the attachment; it may be a flowchart of eligibility criteria: each decision box is a criterion, the exclusion box next to it gives the reason and whether it is "save for snowballing".)` : a.text, a.name), schema: documentImportSchema, name: "document" }),
     save: (_, json) => {
       if (json._error) return toast(json._error, "err");
       close(); closeDialog();

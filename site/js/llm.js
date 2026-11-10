@@ -9,7 +9,7 @@ import { extractJson } from "./util.js";
 
 export const KINDS = {
   manual: { label: "Copy-paste (ChatGPT / Claude.ai)", needsKey: false },
-  openai: { label: "OpenAI API key", needsKey: true, model: "gpt-5.5" },
+  openai: { label: "OpenAI API key", needsKey: true, model: "" },          // no fixed default: chosen from the key's model list
   anthropic: { label: "Claude API key", needsKey: true, model: "claude-opus-5-5" },
   compatible: { label: "Local / Colab server (OpenAI-compatible)", needsKey: false, model: "qwen3:8b", baseUrl: "http://localhost:11434/v1" },
 };
@@ -93,7 +93,7 @@ async function post(url, headers, body, signal) {
 async function callOpenAI(b, system, prompt, schema, name, signal) {
   const base = (b.baseUrl || "https://api.openai.com/v1").replace(/\/$/, "");
   const j = await post(`${base}/responses`, { authorization: `Bearer ${b.apiKey}` }, {
-    model: b.model || KINDS.openai.model,
+    model: b.model || (() => { throw new Error("No OpenAI model chosen: open Models & keys and click Load available models"); })(),
     input: [{ role: "system", content: system }, { role: "user", content: prompt }],
     text: { format: { type: "json_schema", name, strict: true, schema } },
     max_output_tokens: b.maxTokens || 16000,

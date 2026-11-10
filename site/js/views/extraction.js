@@ -1,12 +1,15 @@
+import { stepIntro } from "../disclosure.js";
 // Step 7: data extraction. The form (fields, groups, answer options, core items) is imported from
 // an Excel extraction sheet or built here; models fill it with a quote per value; you verify cell by
 // cell; the result is exported in the form's own layout and summarised in pivot tables.
 
-import { h, clear, toast, pickFile, XLSX, slug, quoteInSource, esc } from "../util.js";
+import { h, clear, toast, pickFile, XLSX, slug, quoteInSource, esc, fmt } from "../util.js";
 import { card, btn, help, row, table, modal, badge, select, input, textarea, field, runPanel } from "../ui.js";
-import { SYSTEM_EXTRACT, extractionPrompt, extractionSchema, extractionBatchSchema, applicableFields, sourceBlock } from "../prompts.js";
+import { SYSTEM_EXTRACT, extractionPrompt, extractionSchema, extractionBatchSchema, applicableFields, sourceBlock, recordValue, modelFields } from "../prompts.js";
 import { getText } from "../store.js";
 import { active } from "./records.js";
+import { checkRun, agreement } from "../extractcheck.js";
+import { showEvidence } from "./evidence.js";
 import { consensus, isInclude, sourceText } from "./screening.js";
 
 const EMPTY = v => v === undefined || v === null || v === "" ;
@@ -22,6 +25,9 @@ export function included(p) {
 export function finalValue(p, rid, fid) {
   const hv = p.extraction.human?.[rid]?.[fid];
   if (!EMPTY(hv)) return { value: hv, source: "human" };
+  const field = p.extraction.fields.find(f => f.id === fid);
+  const rv = field ? recordValue(field, p.records.find(r => r.rid === rid)) : null;
+  if (rv !== null) return { value: rv, source: "record" };
   const vals = Object.values(p.extraction.runs).map(r => r.results?.[rid]?.fields?.[fid]?.value).filter(v => !EMPTY(v));
   if (!vals.length) return { value: "", source: "" };
   const norm = v => String(v).trim().toLowerCase();
@@ -31,7 +37,7 @@ export function finalValue(p, rid, fid) {
 export async function render(m, ctx) {
   const p = ctx.project, ex = p.extraction;
   ex.human ||= {};
-  m.append(h("p", { class: "lead" }, "Import your extraction sheet as the form, let a model propose every value with a verbatim quote, then verify cell by cell. "
+  m.append(stepIntro("extraction", "Import your extraction sheet as the form, let a model propose every value with a verbatim quote, then verify cell by cell. "
     + "Green = verified by you · red = models disagree · ❝✗ = quote not found in the text."));
   m.append(formCard(ctx));
   if (!ex.fields.length) return;
@@ -41,7 +47,15 @@ export async function render(m, ctx) {
   await Promise.all(recs.map(async r => (texts[r.rid] = await getText(p.id, r.rid))));
   const host = h("div");
   m.append(card(`Extract · ${recs.length} included records`,
-    !recs.length ? help("No included records yet: include records in step 6 (your decision, or models that agree).") : null,
+    !recs.length ? h("div", {}, help("No included records yet: include records in step 6 (your decision, or models that agree)."),
+      active(p).length ? row(btn(`These ${active(p).length} records were screened outside Sieve: include them all`, () => {
+        if (!confirm(`Mark all ${active(p).length} unique records as included (full text), with the note "screened outside Sieve"?`)) return;
+        for (const r of active(p)) {
+          p.screening.human[r.rid] ||= { decision: "Include", note: "screened outside Sieve" };
+          (p.screening.human_ft ||= {})[r.rid] = { decision: "Include", note: "screened outside Sieve" };
+        }
+        ctx.save(); ctx.rerender();
+      }, "primary"), h("span", { class: "muted small" }, "use this when you start at extraction with an already screened list")) : null) : null,
     recs.length ? host : null));
   if (recs.length) {
     const runs = Object.keys(ex.runs);
@@ -52,7 +66,7 @@ export async function render(m, ctx) {
       items: (pick.length ? pick : recs).map(r => ({ id: r.rid, label: `${r.rid} ${r.title.slice(0, 40)}` })),
       build: (items, opt = {}) => {
         const rs = items.map(it => p.records.find(r => r.rid === it.id));
-        const ids = new Set(rs.flatMap(r => applicableFields(p, r).map(f => f.id)));
+        const ids = new Set(rs.flatMap(r => modelFields(applicableFields(p, r)).map(f => f.id)));
         const fields = ex.fields.filter(f => ids.has(f.id));
         const src = rs.map(r => ({ source: sourceBlock(r, opt.attachments ? "" : texts[r.rid], 40000), coreOnly: applicableFields(p, r).length < ex.fields.length }));
         return { prompt: extractionPrompt(p, src, fields, opt), schema: items.length > 1 ? extractionBatchSchema(fields) : extractionSchema(fields), name: "extraction" };
@@ -61,6 +75,7 @@ export async function render(m, ctx) {
       done: () => ctx.save(),
     }));
     host.append(row(btn("Refresh grid", () => ctx.rerender(), "ghost")));
+    m.append(checkCard(ctx, texts));
     m.append(gridCard(ctx, recs, texts));
     m.append(pivotCard(ctx, recs));
   }
@@ -184,12 +199,13 @@ function gridCard(ctx, recs, texts) {
     const fv = finalValue(p, r.rid, f.id);
     if (!applicableFields(p, r).some(x => x.id === f.id) && !fv.value) return h("span", { class: "muted small" }, "n/a");
     const res = runs.map(id => ex.runs[id].results?.[r.rid]?.fields?.[f.id]).filter(Boolean);
-    const qbad = fv.source !== "human" && res.some(x => x.quote && quoteInSource(x.quote, sourceText(p, r, texts[r.rid])) === false);
-    return h("span", { class: `xcell ${fv.source === "human" ? "human" : fv.source === "conflict" ? "conflict" : ""} ${isNR(fv.value) ? "nr" : ""}`, onclick: () => editCell(ctx, r, f, texts) },
-      String(fv.value || "").slice(0, 80) || h("span", { class: "muted" }, "·"), qbad ? h("span", { class: "err-text" }, " ❝✗") : "");
+    const qbad = fv.source !== "human" && fv.source !== "record" && res.some(x => x.quote && quoteInSource(x.quote, sourceText(p, r, texts[r.rid])) === false);
+    return h("span", { class: `xcell ${fv.source === "human" ? "human" : fv.source === "conflict" ? "conflict" : fv.source === "record" ? "record" : ""} ${isNR(fv.value) ? "nr" : ""}`, onclick: () => editCell(ctx, r, f, texts) },
+      String(fv.value || "").slice(0, 80) || h("span", { class: "muted" }, "·"), qbad ? h("span", { class: "err-text" }, " ❝✗") : "",
+      res.some(x => x.quote) && fv.source !== "record" ? h("span", { class: "evbtn", title: "show the evidence in the paper", onclick: e => { e.stopPropagation(); fieldEvidence(ctx, r, f, texts); } }, "❝") : "");
   };
   const done = recs.reduce((n, r) => n + ex.fields.filter(f => finalValue(p, r.rid, f.id).source === "human").length, 0);
-  const total = recs.reduce((n, r) => n + applicableFields(p, r).length, 0);
+  const total = recs.reduce((n, r) => n + modelFields(applicableFields(p, r)).length, 0);
   return card("Verify",
     row(h("span", { class: "muted" }, `${done} of ${total} cells verified`), h("span", { class: "spacer" }),
       btn("Accept all values where models agree", () => {
@@ -200,6 +216,14 @@ function gridCard(ctx, recs, texts) {
     h("div", { class: "tablewrap xgrid" }, h("table", {},
       h("thead", {}, h("tr", {}, h("th", {}, "Paper"), ex.fields.map(f => h("th", { title: `${f.group} · ${f.description}` }, f.label)))),
       h("tbody", {}, recs.map(r => h("tr", {}, h("td", { class: "title", style: { minWidth: "200px" } }, h("strong", {}, r.rid), ` ${r.title.slice(0, 70)}`), ex.fields.map(f => h("td", {}, cell(r, f)))))))));
+}
+
+// Quotes of all runs for one cell, highlighted in the paper.
+function fieldEvidence(ctx, r, f, texts, focusRun) {
+  const ex = ctx.project.extraction;
+  const qs = Object.entries(ex.runs).map(([id, run]) => ({ id, x: run.results?.[r.rid]?.fields?.[f.id] })).filter(o => o.x?.quote)
+    .map(o => ({ quote: o.x.quote, label: `${o.id}: ${String(o.x.value).slice(0, 60)}`, id: o.id }));
+  showEvidence(r, texts[r.rid], qs, { focus: Math.max(0, qs.findIndex(q => q.id === focusRun)), title: `${r.rid} · ${f.label}: evidence` });
 }
 
 function editCell(ctx, r, f, texts) {
@@ -216,7 +240,7 @@ function editCell(ctx, r, f, texts) {
       if (!x) return null;
       const ok = x.quote ? quoteInSource(x.quote, src) : null;
       return h("div", { class: "block", style: { marginBottom: "8px" } }, row(h("strong", {}, id), h("span", {}, x.value), h("span", { class: "spacer" }), btn("Accept", () => set(x.value), "sm")),
-        x.quote && h("p", { class: "small" }, `“${x.quote}” `, ok === true ? h("span", { class: "hit" }, "✓ in text") : ok === false ? h("span", { class: "miss" }, "✗ not found in text") : ""));
+        x.quote && h("p", { class: "small" }, h("a", { href: "#", title: "show in the paper", onclick: e => { e.preventDefault(); fieldEvidence(ctx, r, f, texts, id); } }, `“${x.quote}”`), " ", ok === true ? h("span", { class: "hit" }, "✓ in text") : ok === false ? h("span", { class: "miss" }, "✗ not found in text") : ""));
     }),
     field("Your value", inp), h("datalist", { id: listId }, (f.options || []).map(o => h("option", { value: o }))),
     row(btn("Save", () => set(inp.value), "primary"), btn("NR (not reported)", () => set("NR")), btn("Clear", () => { delete ex.human[r.rid]?.[f.id]; ctx.save(); close(); ctx.rerender(); }, "ghost")),
@@ -288,4 +312,34 @@ function pivotCard(ctx, recs) {
       field("Columns", select(cfg.col || "", opts, v => { cfg.col = v; draw(); })),
       field("Value", select(cfg.val || "", nums, v => { cfg.val = v; draw(); }))),
     help("Values with several entries (separated by ';') are counted under each entry. Metrics above 1 are read as percentages."), out);
+}
+
+// ------------------------------------------------------------------ validation of the runs
+// Before verifying cells: how complete each run is, how many values have a quote found verbatim in the
+// paper, core-only compliance, and how often two runs (e.g. two models) agree.
+function checkCard(ctx, texts) {
+  const p = ctx.project;
+  const runs = Object.entries(p.extraction.runs).map(([id, r]) => ({ id, ...r }));
+  if (!runs.length) return "";
+  const pct = (a, b) => (b ? `${Math.round((100 * a) / b)}%` : "–");
+  const rows = runs.map(r => ({ r, c: checkRun(p, r, texts).total }));
+  const pairs = [];
+  for (let i = 0; i < runs.length; i++) for (let j = i + 1; j < runs.length; j++) pairs.push({ a: runs[i], b: runs[j], g: agreement(p, runs[i], runs[j]) });
+  return card("Check the runs",
+    help("Automatic checks before you verify cells. Quotes are searched verbatim in the full text (and abstract): a value without a verified quote needs a look. "
+      + "Run a second model (or the same model twice) to see where they agree; disagreements are red in the grid."),
+    table([
+      { label: "Run", render: x => h("span", {}, h("strong", {}, x.r.id), h("div", { class: "muted small" }, x.r.label || ""),
+        x.r.prompts?.length ? h("div", { class: "small" }, "prompts used: ", x.r.prompts.map((pr, i) => [i ? " · " : "", h("a", { href: pr.file, target: "_blank", rel: "noopener" }, pr.ids.join(","))])) : "") },
+      { label: "Papers", cls: "num", render: x => fmt(x.c.papers) + (x.c.errors ? ` (+${x.c.errors} errors)` : "") },
+      { label: "Values", cls: "num", render: x => `${fmt(x.c.filled)} of ${fmt(x.c.expected)}` },
+      { label: "NR/NA", cls: "num", render: x => fmt(x.c.nr) },
+      { label: "Quotes verified", cls: "num", render: x => badge(pct(x.c.verified, x.c.filled), x.c.filled && x.c.verified / x.c.filled >= 0.9 ? "ok" : "warn") },
+      { label: "Core-only violations", cls: "num", render: x => (x.c.extra ? badge(String(x.c.extra), "warn") : "0") },
+    ], rows),
+    pairs.length ? table([
+      { label: "Runs compared", render: x => `${x.a.id} vs ${x.b.id}` },
+      { label: "Fields compared", cls: "num", render: x => fmt(x.g.compared) },
+      { label: "Agree", cls: "num", render: x => badge(x.g.rate === null ? "–" : pct(x.g.same, x.g.compared), x.g.rate >= 0.8 ? "ok" : "warn") },
+    ], pairs) : help("Only one run: add a second run (another model, or the API route) to measure agreement."));
 }

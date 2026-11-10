@@ -13,6 +13,26 @@ const arr = (items) => ({ type: "array", items });
 const batch = (item) => obj({ results: arr(item) });
 
 // ------------------------------------------------------------------ source material
+// Fit a full text into the prompt budget without losing the results: the reference list is dropped,
+// and a text that is still too long keeps its beginning (abstract, methods) plus the paragraphs with the
+// most results content (metric names, numbers, tables), in their original order, gaps marked "[…]".
+const RESULT_WORDS = /\b(precision|recall|f1|f-?score|f-?measure|auroc|auc|roc|sensitivity|specificity|ppv|npv|accuracy|kappa|micro|macro|table)\b/gi;
+export function fitText(text, max) {
+  let t = String(text || "");
+  const refs = [...t.matchAll(/\n\s*(references|bibliography|literature cited|reference list)\s*\n/gi)].pop();
+  if (refs && refs.index > t.length * 0.5) t = `${t.slice(0, refs.index)}\n[reference list omitted]`;
+  if (t.length <= max) return t;
+  const paras = t.split(/\n\s*\n/);
+  const keep = new Set();
+  let used = 0, i = 0;
+  for (; i < paras.length && used + paras[i].length + 2 <= max * 0.45; i++) { keep.add(i); used += paras[i].length + 2; }
+  const score = s => (s.match(RESULT_WORDS) || []).length * 3 + (s.match(/\d+(?:\.\d+)?\s*%|\b0\.\d{2,}\b/g) || []).length;
+  const ranked = paras.map((s, k) => ({ k, s, n: score(s) })).filter(x => x.k >= i && x.n > 0).sort((a, b) => b.n - a.n || a.k - b.k);
+  for (const x of ranked) { if (used + x.s.length + 2 > max) continue; keep.add(x.k); used += x.s.length + 2; }
+  const ks = [...keep].sort((a, b) => a - b);
+  return ks.map((k, j) => (j && k !== ks[j - 1] + 1 ? "[…]\n\n" : "") + paras[k]).join("\n\n");
+}
+
 export function sourceBlock(rec, text = "", maxChars = 16000) {
   const lines = [
     `PAPER_ID: ${rec.rid}`,
@@ -20,10 +40,11 @@ export function sourceBlock(rec, text = "", maxChars = 16000) {
     rec.year && `YEAR: ${rec.year}`,
     rec.authors && `AUTHORS: ${String(rec.authors).slice(0, 300)}`,
     rec.journal && `JOURNAL: ${rec.journal}`,
+    rec.affiliation && `FIRST AUTHOR AFFILIATION: ${String(rec.affiliation).slice(0, 300)}`,
     rec.doi && `DOI: ${rec.doi}`,
     `ABSTRACT: ${rec.abstract || "(no abstract available)"}`,
   ];
-  if (text) lines.push(`FULL_TEXT_EXCERPT: ${text.slice(0, maxChars)}`);
+  if (text) lines.push(`FULL_TEXT_EXCERPT: ${fitText(text, maxChars)}`);
   return lines.filter(Boolean).join("\n");
 }
 
@@ -79,6 +100,26 @@ export function applicableFields(project, rec) {
   if (until && Number(rec.year) && Number(rec.year) <= until) return ex.fields.filter(f => f.core);
   return ex.fields;
 }
+
+// Bibliographic fields (DOI, first author, publication year, title) come from the record, not from a model:
+// they are filled for every paper (also under the core-only rule) and left out of the prompt.
+// Papers without a DOI (e.g. AMIA proceedings) get their PMID or link.
+function firstAuthorEtAl(authors) {
+  const list = String(authors || "").replace(/\.$/, "").split(/;|,(?=\s*[A-Z][\w'-]+ [A-Z]{1,4}\b)/).map(s => s.trim()).filter(Boolean);
+  return list.length ? `${list[0]}${list.length > 1 ? " et al." : ""}` : "";
+}
+const RECORD_FIELDS = [
+  [/^doi$/i, r => r.doi || (r.pmid ? `PMID ${r.pmid}` : r.link || "")],
+  [/^(auteur|author|first author|eerste auteur)/i, r => firstAuthorEtAl(r.authors)],
+  [/^(publicatiejaar|publication year|year|jaar)$/i, r => String(r.year || "")],
+  [/^(title|titel)$/i, r => r.title || ""],
+];
+export function recordValue(field, rec) {
+  const hit = RECORD_FIELDS.find(([re]) => re.test(String(field.label || "").trim()) || re.test(String(field.id || "")));
+  return hit && rec ? hit[1](rec) : null;
+}
+export const isRecordField = f => RECORD_FIELDS.some(([re]) => re.test(String(f.label || "").trim()) || re.test(String(f.id || "")));
+export const modelFields = fields => fields.filter(f => !isRecordField(f));
 
 export function extractionSchema(fields) {
   return obj({

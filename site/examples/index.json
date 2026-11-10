@@ -1,0 +1,7 @@
+[
+ {
+  "file": "llm-screening.json",
+  "name": "Example: LLMs for title/abstract screening",
+  "description": "Public example project: PubMed and Europe PMC records on large language models for title/abstract screening in systematic reviews. Abstracts only for open-access records; example model runs are real copy-paste outputs."
+ }
+]

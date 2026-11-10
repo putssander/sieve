@@ -1,0 +1,34 @@
+{
+  "id": "24",
+  "fields": {
+    "llms": {
+      "value": "GPT-4 Turbo (OpenAI, released November 7, 2023), via API",
+      "quote": "We used GPT-4 Turbo (OpenAI), released on November 7, 2023, as an LLM"
+    },
+    "prompting": {
+      "value": "Zero-shot with PICO inclusion/exclusion criteria in prompt (original prompt); post hoc: modified prompt loosening criteria; majority vote over 3 iterations; chain-of-thought",
+      "quote": "the LLM, without prior knowledge, decided to include or exclude each citation based on the inclusion and exclusion criteria in terms of the PICO sheet of the selected CQ"
+    },
+    "dataset": {
+      "value": "Title/abstract screening data for 5 clinical questions (CQs) of the Japanese Clinical Practice Guidelines for Management of Sepsis and Septic Shock (J-SSCG 2024)",
+      "quote": "data from the title and abstract screening process for 5 CQs in the J-SSCG 2024"
+    },
+    "n_records": {
+      "value": "16669 in total (CQ1 5634; CQ2 3418; CQ3 1038; CQ4 4326; CQ5 2253)",
+      "quote": "8 of 5634 publications in CQ 1, 4 of 3418 in CQ 2, 4 of 1038 in CQ 3, 17 of 4326 in CQ 4"
+    },
+    "sensitivity": {
+      "value": "0.91 (95% CI 0.77-0.97), pooled over 5 CQs, modified prompt + majority vote, reference = full-text inclusion",
+      "quote": "Using the modified prompt and a majority vote, the aggregate sensitivity and specificity values among the 5 CQs were 0.91 (95% CI, 0.77-0.97) and 0.98"
+    },
+    "specificity": {
+      "value": "0.98 (95% CI 0.96-0.99), pooled over 5 CQs, modified prompt + majority vote, reference = full-text inclusion",
+      "quote": "the aggregate sensitivity and specificity values among the 5 CQs were 0.91 (95% CI, 0.77-0.97) and 0.98 (95% CI, 0.96-0.99)"
+    },
+    "workload": {
+      "value": "Reduction in records for humans NR; screening time per 100 studies 1.3 min (LLM) vs 17.2 min (conventional), mean difference -15.25 min (>10-fold reduction)",
+      "quote": "LLM-assisted screening was associated with reduced time for processing 100 studies (1.3 minutes vs 17.2 minutes for conventional screening methods"
+    }
+  },
+  "notes": "Total records summed from per-CQ counts (5634+3418+1038+4326+2253). Primary analysis (original prompt, protocol-registered): pooled sensitivity 0.75 (95% CI 0.43-0.92), specificity 0.99 (0.99-0.99); per-CQ sensitivity 0.25-1.00. Secondary analysis (reference = title/abstract inclusion): sensitivity 0.49 (0.35-0.63), specificity 1.00 (0.99-1.00). Post hoc modified prompt: 0.89 (0.74-0.95) / 0.98 (0.97-0.99). Original prompt + majority vote: 0.75 / 0.99. Original prompt + chain-of-thought: 0.71 / 0.99. Modified prompt + chain-of-thought: 0.87 / 0.98. Best configuration (modified prompt + majority vote) is post hoc, not prespecified. Human comparator: 2 independent clinical-expert reviewers; meta-analysis results for CQ 4 comparable between methods."
+}

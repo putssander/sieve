@@ -1,0 +1,122 @@
+{
+  "results": [
+    {
+      "id": "24",
+      "decision": "Include",
+      "criteria": {
+        "llm_screening": "Yes",
+        "human_reference": "Yes",
+        "accuracy_reported": "Yes",
+        "original_study": "Yes"
+      },
+      "failed_criteria": [],
+      "primary_exclusion_reason": "N/A",
+      "eligibility_evidence": "LLM screening: \"The LLM decided to include or exclude citations based on the inclusion and exclusion criteria\". Human reference: \"was compared with the conventional method for title and abstract screening\" and \"the full-text screening result using the conventional method was set as the reference standard\". Accuracy: \"integrated sensitivity of 0.75 (95% CI, 0.43 to 0.92) and specificity of 0.99 (95% CI, 0.99 to 0.99)\". Original study: \"This prospective diagnostic study used the data from the title and abstract screening process\".",
+      "screening_note": "Judged on title/abstract only. GPT-4 Turbo screened citations for 5 clinical questions; the abstract calls the reference the 'conventional method' (taken to be human screening for guideline development).",
+      "needs_human_review": false
+    },
+    {
+      "id": "28",
+      "decision": "Unclear",
+      "criteria": {
+        "llm_screening": "Yes",
+        "human_reference": "Unclear",
+        "accuracy_reported": "Unclear",
+        "original_study": "Unclear"
+      },
+      "failed_criteria": [
+        {
+          "criterion": "human_reference",
+          "evidence_quote": "No direct quote available in provided source material.",
+          "interpretation": "No abstract; the title does not say whether GPT-3.5 decisions were compared with human screening."
+        },
+        {
+          "criterion": "accuracy_reported",
+          "evidence_quote": "No direct quote available in provided source material.",
+          "interpretation": "No abstract; unknown whether sensitivity/specificity or the counts to compute them are reported."
+        },
+        {
+          "criterion": "original_study",
+          "evidence_quote": "No direct quote available in provided source material.",
+          "interpretation": "No abstract; cannot tell whether this is a primary evaluation study or a commentary/letter."
+        }
+      ],
+      "primary_exclusion_reason": "No abstract available; comparison with humans, accuracy reporting and study type cannot be judged from the title.",
+      "eligibility_evidence": "",
+      "screening_note": "Only the title is available. The title ('Enhancing title and abstract screening for systematic reviews with GPT-3.5 turbo') indicates an LLM used for screening; retrieve the full text to judge the remaining criteria.",
+      "needs_human_review": true
+    },
+    {
+      "id": "17",
+      "decision": "Exclude",
+      "criteria": {
+        "llm_screening": "No",
+        "human_reference": "No",
+        "accuracy_reported": "No",
+        "original_study": "No"
+      },
+      "failed_criteria": [
+        {
+          "criterion": "llm_screening",
+          "evidence_quote": "to identify studies reporting the opinions of using ChatGPT in nursing fields from 2022 to September 3, 2023",
+          "interpretation": "Topic is opinions on ChatGPT in nursing, not an LLM screening records for a review."
+        },
+        {
+          "criterion": "human_reference",
+          "evidence_quote": "Two authors conducted studies screening, eligibility assessments, and data extraction independently.",
+          "interpretation": "Screening was done by humans only; no LLM decisions compared with human decisions."
+        },
+        {
+          "criterion": "accuracy_reported",
+          "evidence_quote": "However, researchers, institutions, and administrations still need to critically examine its accuracy, safety, and privacy",
+          "interpretation": "Accuracy is mentioned only as a concern; no screening sensitivity or specificity reported."
+        },
+        {
+          "criterion": "original_study",
+          "evidence_quote": "This scoping review was conducted following the framework of Arksey and O'Malley",
+          "interpretation": "Scoping review, not a primary evaluation study."
+        }
+      ],
+      "primary_exclusion_reason": "Off-topic: scoping review of opinions on ChatGPT in nursing, not LLM screening of review records.",
+      "eligibility_evidence": "",
+      "screening_note": "Judged on title/abstract only. Off-topic review, so not kept for snowballing.",
+      "needs_human_review": false
+    },
+    {
+      "id": "18",
+      "decision": "Exclude",
+      "criteria": {
+        "llm_screening": "No",
+        "human_reference": "No",
+        "accuracy_reported": "No",
+        "original_study": "No"
+      },
+      "failed_criteria": [
+        {
+          "criterion": "llm_screening",
+          "evidence_quote": "evaluating the performance of generative artificial intelligence (AI)-driven chatbots for summarizing evidence and providing health advice",
+          "interpretation": "Included studies evaluate chatbots giving health advice, not LLMs screening review records."
+        },
+        {
+          "criterion": "human_reference",
+          "evidence_quote": "Two reviewers screened articles by title and abstract followed by full-text review",
+          "interpretation": "Screening was done by human reviewers only; no LLM decisions compared with human decisions."
+        },
+        {
+          "criterion": "accuracy_reported",
+          "evidence_quote": "In this systematic review of 137 chatbot health advice studies, the reporting quality was heterogeneous",
+          "interpretation": "Outcome is reporting quality, not screening sensitivity or specificity."
+        },
+        {
+          "criterion": "original_study",
+          "evidence_quote": "To perform a systematic review to examine the reporting variability among peer-reviewed studies",
+          "interpretation": "Systematic review, not a primary evaluation study."
+        }
+      ],
+      "primary_exclusion_reason": "Off-topic: systematic review of reporting in chatbot health advice studies, not LLM screening of review records.",
+      "eligibility_evidence": "",
+      "screening_note": "Judged on title/abstract only. Off-topic review, so not kept for snowballing.",
+      "needs_human_review": false
+    }
+  ]
+}

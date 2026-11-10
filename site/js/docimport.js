@@ -8,8 +8,11 @@
 import { readDocx, textToBlocks, blocksToText } from "./docx.js";
 import { strategyFromTable } from "./strategy.js";
 
+export const IMAGE_RE = /\.(png|jpe?g|gif|webp)$/i;
+
 export async function readDocument(name, buf, { pdfToText } = {}) {
   const lower = name.toLowerCase();
+  if (IMAGE_RE.test(lower)) return [];          // images (e.g. a criteria flowchart) are read by the chat, attached
   if (lower.endsWith(".docx")) return readDocx(buf);
   if (lower.endsWith(".pdf")) {
     if (!pdfToText) throw new Error("PDF reading is only available in the app");
@@ -31,6 +34,7 @@ const ELEMENT_LABELS = [
 ];
 
 export function analyzeDocument(blocks, { name = "document" } = {}) {
+  if (IMAGE_RE.test(name)) return { name, image: true, question: "", elements: [], pmids: [], dois: [], strategies: [], text: "" };
   // Paragraph lines (soft line breaks split), with the index of the block they came from.
   const lines = [];
   blocks.forEach((b, bi) => { if (b.type === "p") b.text.split(/\n/).map(s => s.trim()).filter(Boolean).forEach(text => lines.push({ text, bi })); });

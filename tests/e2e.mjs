@@ -129,14 +129,18 @@ await js(`
   const { ctx } = await import("/js/app.js");
   const R = await import("/js/views/records.js");
   const k = ${JSON.stringify(known)};
-  R.addRecords(ctx, [{ pmid: k[0].pmid, title: k[0].title || "Known article", year: "2024" }, { pmid: "99999991", title: "A PubMed-only paper about AI in hospitals", year: "2024" }], "PubMed");
-  R.addRecords(ctx, [{ title: k[0].title || "Known article", year: "2024" }, { title: "A PubMed only paper about AI in hospitals.", year: "2024" }, { title: "Embase only: nurses and decision support", year: "2023" }], "Embase");
-  R.addRecords(ctx, [{ title: "A PubMed-only paper on AI in hospitals", year: "2025" }], "Web of Science");
+  R.addRecords(ctx, [{ pmid: k[0].pmid, title: k[0].title || "Known article", authors: "Page MJ", journal: "BMJ", year: "2021", volume: "372", pages: "n71" },
+    { pmid: "99999991", title: "A PubMed-only paper about AI in hospitals", authors: "Jones A", journal: "BMJ Open", year: "2024", volume: "14", issue: "2", pages: "1008-12" }], "PubMed");
+  R.addRecords(ctx, [{ title: k[0].title || "Known article", authors: "Page, Matthew J.", journal: "British Medical Journal", year: "2021" },
+    { title: "Implementation of AI in hospitals (Embase title)", authors: "Jones, Anna", journal: "BMJ Open", year: "2024", volume: "14", issue: "2", pages: "1008-1012" },
+    { title: "Embase only: nurses and decision support", authors: "Lee K", year: "2023" }], "Embase");
+  R.addRecords(ctx, [{ title: "A PubMed-only paper on AI in hospitals", authors: "Jones A", year: "2025" }], "Web of Science");
   return true;`);
 await sleep(1500);
 const rec = await js(`return document.body.innerText`);
 check(/Duplicates across databases/.test(rec) && /Recall per database/.test(rec), "records: overlap and recall cards");
 check(/possible duplicate/.test(rec), "records: near-duplicate proposed for review");
+check(/Linked automatically: A \(author \+ year \+ title \+ journal\): 1 · D \(author \+ volume \+ pages\): 1/.test(rec), "records: Bramer rules A (BMJ = British Medical Journal) and D (abbreviated pages) linked automatically");
 const recall = await js(`return [...document.querySelectorAll(".stats .stat")].map(x => x.innerText.replace(/\\n/g, " ")).join(" | ")`);
 console.log("   records stats:", recall);
 check(/PubMed/.test(recall) && /Embase/.test(recall), "records: recall per database shown");
@@ -174,19 +178,58 @@ check(await js(`const c = document.querySelector("#main .card"); return !!docume
 
 // ---------------------------------------------------------------- settings: model list (mocked provider)
 await js(`localStorage.setItem("srp-settings", JSON.stringify({ ...JSON.parse(localStorage.getItem("srp-settings") || "{}") })); return true`);
-await js(`const st = await import("/js/store.js"); const s = st.getSettings(); const c = s.backends.find(b => b.kind === "anthropic"); c.apiKey = "test-key"; c.model = "claude-old-1"; c.modelsDate = new Date().toISOString().slice(0,10); c.models = []; st.setSettings(s); return true`);
+await js(`const st = await import("/js/store.js"); const s = st.getSettings(); const c = s.backends.find(b => b.kind === "anthropic"); c.apiKey = "test-key"; c.model = "claude-old-1"; c.modelChosen = true; c.modelsDate = new Date().toISOString().slice(0,10); c.models = []; st.setSettings(s); return true`);
 await send("Page.navigate", { url: `${BASE}/#/settings` }); await sleep(1000);
 await js(`const of = window.fetch; window.fetch = (u, o) => String(u).includes("api.anthropic.com/v1/models")
   ? Promise.resolve(new Response(JSON.stringify({ data: [{ id: "claude-opus-5-5", display_name: "Claude Opus 5.5", created_at: "2026-10-01T00:00:00Z" }, { id: "claude-haiku-5-5", created_at: "2026-09-01T00:00:00Z" }], has_more: false })))
   : of(u, o); return true`);
-await js(`const card = [...document.querySelectorAll(".card")].find(c => c.innerText.includes("Claude API key")); [...card.querySelectorAll("button")].find(b => b.textContent.includes("Load available models")).click(); return true`);
+await js(`const card = document.getElementById("connection-claude"); [...card.querySelectorAll("button")].find(b => /Load (available )?models/.test(b.textContent)).click(); return true`);
 await sleep(800);
 const st = await js(`return document.body.innerText`);
 check(/"claude-old-1" is not offered for this key/.test(st) && /Use claude-opus-5-5/.test(st), "settings: outdated model flagged, newest suggested");
 check(/Sieve GPT in ChatGPT/.test(st), "settings: Sieve GPT card");
+// A browser that still has the old built-in default saved: it is cleared on load, not shown as a model.
+await js(`const st = await import("/js/store.js"); const raw = JSON.parse(localStorage.getItem("srp-settings") || "{}"); raw.backends = (raw.backends || st.DEFAULT_SETTINGS.backends).map(b => b.kind === "openai" ? { ...b, model: "gpt-5.5", modelChosen: undefined } : b); localStorage.setItem("srp-settings", JSON.stringify(raw)); return true`);
+await send("Page.navigate", { url: `${BASE}/#/` }); await sleep(500); await send("Page.navigate", { url: `${BASE}/#/settings` }); await sleep(1000);
+const oa = await js(`const c = document.getElementById("connection-openai"); const i = c?.querySelector("input[list]"); return { value: i?.value, placeholder: i?.placeholder }`);
+check(oa.value === "" && /Load available models/.test(oa.placeholder || ""), `settings: outdated default model not shown (${JSON.stringify(oa)})`);
 check(errors.length === 0, `no page errors${errors.length ? ": " + errors.join(" / ") : ""}`);
 await send("Page.navigate", { url: `${BASE}/#/p/${pid}/protocol` }); await sleep(800);
 await js(`const s = await import("/js/store.js"); await s.deleteProject(window.__pid || ${JSON.stringify(pid)}); return true;`);
+
+// ---------------------------------------------------------------- example project, tour and methods page
+await send("Page.navigate", { url: `${BASE}/#/` }); await sleep(1200);
+await click("Try the example");
+for (let i = 0; i < 60 && !/example-llm-screening/.test(await js(`return location.hash`)); i++) await sleep(500);
+await sleep(800);
+const exUrl = await js(`return location.hash`);
+check(/#\/p\/example-llm-screening\/protocol/.test(exUrl), `home: example project opens (${exUrl})`);
+for (const step of ["protocol", "search", "records", "verify", "fulltext", "screening", "extraction", "report"]) {
+  const before = errors.length;
+  await send("Page.navigate", { url: `${BASE}/#/p/example-llm-screening/${step}` }); await sleep(1500);
+  const hasMethod = await js(`return [...document.querySelectorAll(".page-tools a")].some(a => a.getAttribute("href") === "#/methods/${step}")`);
+  check(hasMethod && errors.length === before, `example ${step}: renders with a Method link${errors.length > before ? " ERRORS: " + errors.slice(before).join(" / ") : ""}`);
+}
+const exState = await js(`const s = await import("/js/store.js"); const p = await s.loadProject("example-llm-screening");
+  return { records: p.records.length, dups: p.records.filter(r => r.duplicate_of).length, screening: Object.keys(p.screening.runs).length, extraction: Object.keys(p.extraction.runs).length };`);
+console.log("   example:", JSON.stringify(exState));
+check(exState.records > 20 && exState.dups > 0, "example: real records from two sources, duplicates linked");
+check(exState.screening >= 1 && exState.extraction >= 1, "example: example screening and extraction runs present");
+await send("Page.navigate", { url: `${BASE}/#/p/example-llm-screening/extraction` }); await sleep(2500);
+const exCheck = await js(`const c = [...document.querySelectorAll(".card")].find(x => x.innerText.startsWith("Check the runs")); const a = c?.querySelector("a[href^='examples/prompts/']");
+  const r = a ? await fetch(a.getAttribute("href")) : null; return { text: c?.innerText.replace(/\\s+/g, " "), prompt: r ? r.status + " " + (await r.text()).length : "no link", included: document.body.innerText.match(/Extract · (\\d+) included/)?.[1] };`);
+console.log("   example extraction:", JSON.stringify(exCheck));
+check(/100%|9\d%/.test(exCheck.text || "") && /^200 \d{4,}/.test(exCheck.prompt), "example extraction: quotes verified in the embedded texts, exact prompt published");
+await send("Page.navigate", { url: `${BASE}/#/guide/screening` }); await sleep(1000);
+await js(`const s = await import("/js/store.js"); await s.deleteProject("example-llm-screening"); return true`);
+await click("Try screening");
+for (let i = 0; i < 60 && !/example-llm-screening/.test(await js(`return location.hash`)); i++) await sleep(500);
+await sleep(800);
+check(/example-llm-screening\/screening/.test(await js(`return location.hash`)), "tour: 'Try screening' opens that step of the example project");
+await send("Page.navigate", { url: `${BASE}/#/methods/extraction` }); await sleep(1000);
+const mt = await js(`return document.body.textContent`);   // steps are collapsible: include folded sections
+check(await js(`return document.getElementById("m-extraction")?.open === true`) && /Methods & guidance/.test(mt) && /PROBAST\+AI/.test(mt) && /Waffenschmidt/.test(mt) && /Bramer/.test(mt), "methods page: guidance with sources per step");
+await js(`const s = await import("/js/store.js"); await s.deleteProject("example-llm-screening"); return true`);
 
 // ---------------------------------------------------------------- public site: no contact with this device unless asked
 const requests = [];

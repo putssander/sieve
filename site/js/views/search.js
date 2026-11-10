@@ -1,3 +1,5 @@
+import { stepIntro } from "../disclosure.js";
+import { termHelp } from "../explain.js";
 // Step 2: build the search string as concept blocks and tune it against PubMed:
 // counts, recall on a validation set and a hold-out set, why articles are missed,
 // per-term contribution, MeSH of known articles, a precision sample, versions and translations.
@@ -12,8 +14,8 @@ import { SYSTEM_SEARCH, searchFromProtocolPrompt, searchBlocksSchema, suggestTer
 
 export function render(m, ctx) {
   const p = ctx.project, S = p.search;
-  m.append(h("p", { class: "lead" }, "Build the string as concept blocks (terms within a block are OR-ed, include blocks are AND-ed, exclude blocks are removed with NOT). "
-    + "Test every change in PubMed: the goal is fewer records without losing any article from the validation set."));
+  m.append(stepIntro("search", "Build the string as concept blocks (terms within a block are OR-ed, include blocks are AND-ed, exclude blocks are removed with NOT). "
+    + "Test changes in PubMed to improve coverage and understand your screening workload. Finding all your known papers does not guarantee that you have found every relevant study."));
 
   // Jump bar: the page is long, and the known articles drive every test.
   const sections = [];
@@ -23,12 +25,10 @@ export function render(m, ctx) {
 
   // ---------------------------------------------------------------- known articles (first: everything is tested against them)
   sec("known", `Known articles (${S.validation.length} + ${S.holdout.length})`, h("section", { class: "card known" },
-    h("h3", {}, "Known articles: validation & hold-out sets"),
-    help("Every test of the search string (here in PubMed, and per database in step 3 after you import the exports) checks whether these articles are found. "
-      + "Validation = must be found and used while tuning (seed articles, known includes). Hold-out = relevant articles you do NOT tune on (e.g. references from the proposal): they show whether the string generalises. "
-      + "\"Start from a document\" in step 1 fills these from a ticket or proposal."),
-    h("div", { class: "grid2" }, pmidSetCard(ctx, "validation", `Validation set (${S.validation.length})`, "Must be found. Used while tuning."),
-      pmidSetCard(ctx, "holdout", `Hold-out set (${S.holdout.length})`, "Not used while tuning. Tests for overfitting."))));
+    h("h3", {}, "Check your search against papers you already know"),
+    help("Use one group of relevant papers to improve your search. Keep a different group aside to check whether it also finds papers you did not use to build it. Select an ⓘ button for an explanation."),
+    h("div", { class: "grid2" }, pmidSetCard(ctx, "validation", `Validation set (${S.validation.length})`, "Use these known relevant papers while improving your search."),
+      pmidSetCard(ctx, "holdout", `Hold-out set (${S.holdout.length})`, ["Keep aside while building the search. Helps check for ", termHelp("overfitting", "overfitting"), "."]))));
 
   // ---------------------------------------------------------------- blocks
   const blocksEl = h("div", { class: "blocks" });
@@ -41,7 +41,7 @@ export function render(m, ctx) {
   const strategies = strategiesCard(ctx);
   const strategiesFirst = S.strategies?.length && !S.blocks.length;
   if (strategiesFirst) sec("strategies", "Database strategies", strategies);
-  sec("blocks", "PubMed blocks", card("Concept blocks (PubMed)",
+  sec("blocks", "PubMed blocks", card(termHelp("blocks", "Concept blocks (PubMed)"),
     row(btn("+ Include block", () => { S.blocks.push({ id: uid(S.blocks, "block"), label: "New concept", role: "include", terms: [] }); ctx.save(); drawBlocks(); }),
       btn("+ Exclude block", () => { S.blocks.push({ id: uid(S.blocks, "excl"), label: "Exclude: …", role: "exclude", terms: [] }); ctx.save(); drawBlocks(); }),
       h("span", { class: "spacer" }),
@@ -61,7 +61,7 @@ export function render(m, ctx) {
   const diag = h("div");
   sec("diagnostics", "Diagnostics", card("Term diagnostics",
     help("For each term: records it brings in (within the rest of the query), records ONLY this term brings in (its unique contribution, i.e. what you lose by removing it), "
-      + "and validation articles that depend on it. Generic terms with many unique hits and no validation articles are noise."),
+      + "and known relevant articles that depend on it. A term that finds none of your known papers may still find other relevant studies: inspect its results before removing it."),
     row(field("Block", select("", [["", "choose a block…"], ...S.blocks.filter(b => b.enabled !== false).map(b => [b.id, b.label])], v => v && termDiagnostics(ctx, v, diag)))),
     diag));
 
@@ -186,7 +186,7 @@ function saveVersion(ctx) {
 function pmidSetCard(ctx, key, title, desc) {
   const S = ctx.project.search;
   const ta = textarea(S[key].map(v => `${v.pmid}${v.label ? "  " + v.label : ""}`).join("\n"), () => {}, { rows: 8, class: "code", placeholder: "one PMID per line, optionally followed by a label" });
-  return card(title, help(desc),
+  return card(termHelp(key, title), help(desc), help("Enter one ", termHelp("pmid"), " per line; an optional title can follow it."),
     ta,
     row(btn("Save & look up titles", async () => {
       const lines = ta.value.split("\n").map(l => l.trim()).filter(Boolean);
@@ -255,8 +255,8 @@ async function termDiagnostics(ctx, blockId, el) {
 function meshCard(ctx) {
   const S = ctx.project.search;
   const out = h("div");
-  return card("MeSH & keywords of the validation set",
-    help("Like the Yale MeSH Analyzer: which subject headings and author keywords do the known relevant articles share, and are they already in the string?"),
+  return card(termHelp("mesh", "MeSH & keywords of the validation set"),
+    help("Find the topic labels and keywords used by your known papers, then compare them with your search terms."),
     row(btn("Analyse", async e => {
       e.target.disabled = true;
       try {
@@ -318,7 +318,7 @@ function sampleCard(ctx) {
     ], sm.items, { limit: 100 }));
   };
   draw();
-  return card("Precision sample", body);
+  return card(termHelp("precision", "Precision sample"), body);
 }
 
 function judgeTitles(ctx, redraw) {

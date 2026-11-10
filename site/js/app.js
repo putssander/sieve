@@ -13,6 +13,10 @@ import * as screening from "./views/screening.js";
 import * as extraction from "./views/extraction.js";
 import * as report from "./views/report.js";
 import { pageHelpButton } from "./views/pagehelp.js";
+import * as guide from "./views/guide.js";
+import * as methods from "./views/methods.js";
+import { stageIcon } from "./icons.js";
+import { sieveLogo } from "./brand.js";
 
 export const STEPS = [
   { id: "protocol", n: 1, label: "Protocol", sub: "question, PICO, criteria", view: protocol },
@@ -48,7 +52,8 @@ export const ctx = {
   get project() { return current; },
   save(now = false) {
     clearTimeout(saveTimer);
-    const run = () => saveProject(current).catch(e => toast(`Save failed: ${e.message}`, "err"));
+    const project = current;
+    const run = () => saveProject(project).catch(e => toast(`Save failed: ${e.message}`, "err"));
     if (now) return run();
     saveTimer = setTimeout(run, 400);
     renderSide();
@@ -60,27 +65,40 @@ export const ctx = {
 function renderSide() {
   const el = clear(side());
   const parts = location.hash.split("/");
-  el.append(h("a", { class: "brand", href: "#/" }, h("span", { class: "logo" }, "◧"), " Sieve"));
-  if (current) {
+  el.append(h("a", { class: "brand", href: "#/", "aria-label": "Sieve home" }, sieveLogo(), h("span", {}, "sieve", h("span", { class: "brand-dot" }, "."))));
+  if (current && parts[1] === "p") {
     el.append(h("div", { class: "pname", title: current.name }, current.name));
     const nav = h("nav", { class: "steps-nav" });
     for (const s of STEPS) {
       const st = status(current, s.id);
       nav.append(h("a", { href: `#/p/${current.id}/${s.id}`, class: parts[3] === s.id ? "active" : "" },
         h("span", { class: `num ${st === "done" ? "done" : st ? "part" : ""}` }, s.n),
-        h("span", { class: "lbl" }, s.label, h("small", {}, s.sub)),
+        h("span", { class: "lbl" }, h("span", { class: "stage-name" }, stageIcon(s.id), s.label), h("small", {}, s.sub)),
         st && st !== "done" && st !== "part" && h("span", { class: "count" }, st)));
     }
+    el.append(nav);
+  } else {
+    el.append(h("div", { class: "side-intro" }, "A workspace for literature research"),
+      h("div", { class: "nav-caption" }, "Explore the workflow"));
+    const nav = h("nav", { class: "steps-nav", "aria-label": "Explore the workflow" });
+    for (const s of STEPS) nav.append(h("a", {
+      href: `#/guide/${s.id}`, class: parts[1] === "guide" && parts[2] === s.id ? "active" : "",
+      "aria-current": parts[1] === "guide" && parts[2] === s.id ? "page" : undefined,
+    }, h("span", { class: "num" }, s.n), h("span", { class: "lbl" }, h("span", { class: "stage-name" }, stageIcon(s.id), s.label), h("small", {}, s.sub))));
     el.append(nav);
   }
   el.append(h("div", { class: "side-foot" },
     h("a", { href: "#/", class: parts[1] === "" || !parts[1] ? "active" : "" }, "Projects"),
+    h("a", { href: "#/guide/protocol" }, "Workflow tour"),
+    h("a", { href: "#/guide/options", class: parts[2] === "options" ? "active" : "" }, "AI, tokens & local tools"),
+    h("a", { href: "#/methods", class: parts[1] === "methods" ? "active" : "" }, "Methods & guidance"),
     h("a", { href: "#/settings", class: parts[1] === "settings" ? "active" : "" }, "Models & keys")));
 }
 
 async function route() {
   const parts = location.hash.replace(/^#/, "").split("/"); // ["", "p", id, step]
   const m = clear(main());
+  document.querySelectorAll(".modal-bg").forEach(x => x.remove());   // dialogs belong to the page they were opened on
   try {
     if (parts[1] === "p" && parts[2]) {
       if (!current || current.id !== parts[2]) {
@@ -90,11 +108,22 @@ async function route() {
       const step = STEPS.find(s => s.id === parts[3]) || STEPS[0];
       renderSide();
       document.title = `${step.label} · ${current.name}`;
-      m.append(h("header", { class: "page-head" }, h("div", { class: "page-tools" }, pageHelpButton(ctx, step.id)),
-        h("div", { class: "kicker" }, `Step ${step.n} of ${STEPS.length}`), h("h1", {}, step.label)));
+      m.append(h("header", { class: "page-head" }, h("div", { class: "page-tools" },
+        h("a", { class: "btn ghost sm", href: `#/guide/${step.id}` }, "What to expect"),
+        h("a", { class: "btn ghost sm", href: `#/methods/${step.id}`, title: "accepted method for this step, with sources, and what Sieve does" }, "Method"), pageHelpButton(ctx, step.id)),
+        h("div", { class: "kicker" }, `Step ${step.n} of ${STEPS.length}`), h("h1", { class: "stage-heading" }, stageIcon(step.id), step.label)));
       await step.view.render(m, ctx);
       const next = STEPS[STEPS.indexOf(step) + 1];
       if (next) m.append(h("div", { class: "next" }, h("a", { class: "btn", href: `#/p/${current.id}/${next.id}` }, `Next: ${next.label} →`)));
+    } else if (parts[1] === "guide") {
+      renderSide();
+      document.title = "Explore the workflow · Sieve";
+      if (parts[2] === "options") guide.renderOptions(m);
+      else guide.render(m, ctx, parts[2]);
+    } else if (parts[1] === "methods") {
+      renderSide();
+      document.title = "Methods & guidance · Sieve";
+      methods.render(m, parts[2]);
     } else if (parts[1] === "settings") {
       renderSide();
       document.title = "Models & keys";

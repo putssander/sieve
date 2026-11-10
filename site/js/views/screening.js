@@ -1,7 +1,11 @@
+import { stepIntro } from "../disclosure.js";
+import { termHelp } from "../explain.js";
 // Step 6: screening. Any number of model runs (copy-paste, API, local/Colab, imported) next to
 // the human decision. Disagreements are sorted to the top, every evidence quote is checked
 // against the source text, and agreement statistics show how far a model can be trusted.
 
+import { showEvidence } from "./evidence.js";
+import { highlightHtml } from "../evidence.js";
 import { h, clear, toast, fmt, kappa, quoteInSource, quotedFragments, XLSX, esc } from "../util.js";
 import { card, btn, help, row, table, modal, badge, select, textarea, runPanel, field } from "../ui.js";
 import { DECISIONS, SYSTEM_SCREEN, screeningPrompt, screeningSchema, screeningBatchSchema, sourceBlock } from "../prompts.js";
@@ -53,7 +57,7 @@ export async function render(m, ctx) {
   await Promise.all(recs.filter(r => p.fulltext[r.rid] && !p.fulltext[r.rid].failed).map(async r => (texts[r.rid] = await getText(p.id, r.rid))));
   const runs = Object.keys(sc.runs);
 
-  m.append(h("p", { class: "lead" }, "Screen with as many routes as you like (ChatGPT by copy-paste, an API model, a local model) and compare them with your own decisions. "
+  m.append(stepIntro("screening", "Screen with as many routes as you like (ChatGPT by copy-paste, an API model, a local model) and compare them with your own decisions. "
     + "Work from the top of the table: model–model and model–human disagreements first."));
 
   m.append(card("Stage",
@@ -119,13 +123,28 @@ export async function render(m, ctx) {
 }
 
 // Everything the model was shown: metadata, abstract and full text.
-export const sourceText = (p, r, text) => [r.title, r.year, r.authors, r.journal, r.doi, r.link, p.resolve[r.rid]?.resolved_url, r.abstract, text].filter(Boolean).join(" ");
+// Everything a model was shown for this record, including the labelled metadata lines of the prompt
+// ("YEAR: 2018", "AUTHORS: …"), so quotes copied from those lines verify too.
+export const sourceText = (p, r, text) => [r.title, r.year, r.authors, r.journal, r.doi, r.link, p.resolve?.[r.rid]?.resolved_url, r.affiliation,
+  r.year && `YEAR: ${r.year}`, r.authors && `AUTHORS: ${r.authors}`, r.journal && `JOURNAL: ${r.journal}`, r.doi && `DOI: ${r.doi}`, r.affiliation && `FIRST AUTHOR AFFILIATION: ${r.affiliation}`,
+  r.abstract, text].filter(Boolean).join(" ");
 
 function quotesOk(res, r, text, p) {
   const src = sourceText(p, r, text);
   const qs = [...(res.failed_criteria || []).map(f => f.evidence_quote), ...quotedFragments(res.eligibility_evidence)].filter(Boolean);
   const checks = qs.map(q => quoteInSource(q, src)).filter(x => x !== null);
   return checks.length ? checks.every(Boolean) : null;
+}
+
+// Inclusion and exclusion evidence of all runs for one record, highlighted in the paper.
+function screeningEvidence(p, r, texts, runs, focusKey) {
+  const qs = [];
+  for (const id of runs) {
+    const res = p.screening.runs[id].results[r.rid] || {};
+    for (const f of res.failed_criteria || []) if (f.evidence_quote) qs.push({ key: `${id}|${f.criterion}`, quote: f.evidence_quote, label: `${id} · exclusion · ${p.criteria.find(c => c.id === f.criterion)?.label || f.criterion}` });
+    for (const q of quotedFragments(res.eligibility_evidence)) qs.push({ key: `${id}|evidence`, quote: q, label: `${id} · ${res.decision === "Include" ? "inclusion" : "evidence"}` });
+  }
+  showEvidence(r, texts[r.rid], qs, { focus: Math.max(0, qs.findIndex(q => q.key === focusKey)), title: `${r.rid} · screening evidence` });
 }
 
 function detail(ctx, r, order, layer, texts, stage) {
@@ -142,14 +161,9 @@ function detail(ctx, r, order, layer, texts, stage) {
     if (order[i + 1]) detail(ctx, order[i + 1], order, layer, texts, stage); else ctx.rerender();
   };
   const crit = p.criteria;
-  const highlight = text => {
-    let html = esc(text);
-    for (const id of runs) for (const f of sc.runs[id].results[r.rid].failed_criteria || []) {
-      const q = esc(f.evidence_quote || "").trim();
-      if (q.length > 8 && html.includes(q)) html = html.replace(q, `<mark title="${esc(id)}: ${esc(f.criterion)}">${q}</mark>`);
-    }
-    return html;
-  };
+  // Exclusion quotes marked in the abstract/full text (robust to PDF line breaks); click a quote for the full view.
+  const highlight = text => highlightHtml(text, runs.flatMap(id => (sc.runs[id].results[r.rid].failed_criteria || [])
+    .map(f => ({ quote: f.evidence_quote || "", label: `${id}: ${f.criterion}` })))).html;
   const body = h("div", {},
     h("div", { class: "grid2" },
       h("div", {},
@@ -170,10 +184,12 @@ function detail(ctx, r, order, layer, texts, stage) {
           const res = sc.runs[id].results[r.rid];
           return h("div", { class: "block", style: { marginTop: "8px" } }, h("strong", {}, id), " ", res._error && h("span", { class: "err-text" }, res._error),
             (res.failed_criteria || []).map(f => { const ok = quoteInSource(f.evidence_quote, src);
-              return h("p", { class: "small" }, h("b", {}, `${crit.find(c => c.id === f.criterion)?.label || f.criterion}: `), `“${f.evidence_quote}” `,
+              return h("p", { class: "small" }, h("b", {}, `${crit.find(c => c.id === f.criterion)?.label || f.criterion}: `),
+                h("a", { href: "#", title: "show in the paper", onclick: e => { e.preventDefault(); screeningEvidence(p, r, texts, runs, `${id}|${f.criterion}`); } }, `“${f.evidence_quote}”`), " ",
                 ok === true ? h("span", { class: "hit", title: "quote found in source" }, "✓") : ok === false ? h("span", { class: "miss", title: "quote NOT found in source" }, "✗ not in source") : "",
                 h("br"), h("span", { class: "muted" }, f.interpretation)); }),
-            res.eligibility_evidence && h("p", { class: "small" }, res.eligibility_evidence),
+            res.eligibility_evidence && h("p", { class: "small" }, res.eligibility_evidence, " ",
+              quotedFragments(res.eligibility_evidence).length ? h("a", { href: "#", onclick: e => { e.preventDefault(); screeningEvidence(p, r, texts, runs, `${id}|evidence`); } }, "show in the paper") : ""),
             res.screening_note && h("p", { class: "small muted" }, res.screening_note));
         }))),
     h("div", { class: "card", style: { marginTop: "12px" } },
@@ -204,20 +220,21 @@ function metricsCard(p, recs, runs, layer) {
     pairRows.push({ pair: `${runs[i]} × ${runs[j]}`, ...k });
   }
   return card("Agreement",
-    help(`Compared with your decisions on ${nh} records. Sensitivity (the share of your includes the model also includes) matters most: a missed include is lost for good, an extra include costs one more full-text check.`),
+    help(`Compared with your decisions on ${nh} records. Check papers the model excluded but you included: they could be missed if you relied on the model alone. The information buttons explain each score.`),
     table([
-      { label: "Run", render: x => h("span", { title: x.label }, x.id) },
+      { label: "Run", render: x => h("span", { title: x.label }, x.id, (sc.runs[x.id]?.prompts || []).length
+        ? h("div", { class: "small" }, "prompts used: ", sc.runs[x.id].prompts.map((pr, i) => [i ? " · " : "", h("a", { href: pr.file, target: "_blank", rel: "noopener" }, `batch ${i + 1}`)])) : "") },
       { label: "Screened", cls: "num", render: x => x.screened },
       { label: "Unclear", cls: "num", render: x => x.unclear },
       { label: "Compared", cls: "num", render: x => x.n },
       { label: "Agreement", cls: "num", render: x => (x.agree === null ? "–" : `${Math.round(x.agree * 100)}%`) },
-      { label: "Cohen's κ", cls: "num", render: x => f2(x.kappa) },
-      { label: "Sensitivity", cls: "num", render: x => (x.sens === null ? "–" : h("span", { class: x.sens < 0.95 ? "miss" : "hit" }, `${Math.round(x.sens * 100)}%`)) },
-      { label: "Specificity", cls: "num", render: x => (x.spec === null ? "–" : `${Math.round(x.spec * 100)}%`) },
+      { label: termHelp("kappa", "Cohen's κ"), cls: "num", render: x => f2(x.kappa) },
+      { label: termHelp("sensitivity"), cls: "num", render: x => (x.sens === null ? "–" : h("span", { class: x.sens < 0.95 ? "miss" : "hit" }, `${Math.round(x.sens * 100)}%`)) },
+      { label: termHelp("specificity"), cls: "num", render: x => (x.spec === null ? "–" : `${Math.round(x.spec * 100)}%`) },
       { label: "Missed includes", cls: "num", render: x => x.fn },
     ], rowsVsHuman, { empty: "No model runs yet." }),
     pairRows.length > 0 && table([{ label: "Model × model", render: x => x.pair }, { label: "Compared", cls: "num", render: x => x.n },
-      { label: "Agreement", cls: "num", render: x => (x.agree === null ? "–" : `${Math.round(x.agree * 100)}%`) }, { label: "κ", cls: "num", render: x => f2(x.kappa) }], pairRows));
+      { label: "Agreement", cls: "num", render: x => (x.agree === null ? "–" : `${Math.round(x.agree * 100)}%`) }, { label: termHelp("kappa", "κ"), cls: "num", render: x => f2(x.kappa) }], pairRows));
 }
 
 async function exportXlsx(p, rows, runs, layer) {

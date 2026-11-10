@@ -7,7 +7,7 @@
     python -m sieve run job.json --backend openai --base-url http://localhost:11434/v1 --model qwen3:8b
 
     # The OpenAI API itself (OPENAI_API_KEY in the environment)
-    python -m sieve run job.json --backend openai --model gpt-5.5
+    python -m sieve run job.json --backend openai --model <model id from Models & keys>
 
 The job holds the exact prompts and JSON schemas the GUI would send, so results are directly
 comparable with copy-paste and API runs. Output: <job>.results.json (resumable: finished items

@@ -26,7 +26,7 @@ export const TICKET_ROWS = [
 ];
 
 export const TICKET_PARAGRAPHS = [
-  "SLRS service Ticket",
+  "Literature search service ticket",
   "Research question:\n1. Which factors affect the implementation of AI in hospitals?\n2. Which frameworks are used to study it?",
   "Articles:",
   "https://doi.org/10.1000/preprint.123",

@@ -4,9 +4,38 @@ Sieve the literature down to the studies that count. A browser workspace for sys
 verification → full text → screening → data extraction → PRISMA report.
 
 It generalises two earlier review projects: a script-based PubMed search-string tuning study and a
-Python screening pipeline that compared GPT-5.5 with a local qwen3-8b. Their methods became steps 2–7
+Python screening pipeline that compared an OpenAI model with a local qwen3-8b. Their methods became steps 2–7
 below; the copy-paste prompts used before became the copy-paste route, now with JSON answers that are
 read back automatically.
+
+## Explore before starting a project
+
+The home page and sidebar link to a project-free walkthrough of all eight steps (`#/guide/protocol`).
+Each step explains what to bring, what the researcher decides, what Sieve helps with, the expected output
+and the work involved, alongside a labelled illustrative example. Exploring the walkthrough does not
+create a project or call a model. Existing projects have a **What to expect** link on each step.
+The walkthrough shows the starting materials and outcome first; explanations, examples and effort estimates
+expand on demand. Project steps keep their working controls visible with a compact **Why this step & how it works**
+section. Methods, optional setup and data-sharing guidance use the same keyboard-accessible disclosures.
+Technical terms such as overfitting, hold-out sets, recall and PRISMA have inline **ⓘ** buttons. Each opens
+a plain-language explanation, a practical example and advice for the review. The dialogs support keyboard
+navigation, Escape to close and focus return to the original button. Each step also explains why it matters.
+
+**AI, tokens & local tools** (`#/guide/options`) compares copy-paste, API and local model routes, explains
+data sharing and browser storage, and distinguishes the local PDF helper from a local model server.
+Its optional cost planner uses the researcher's own token counts and provider rates; it makes no API calls
+and does not set a spending limit.
+
+## Try it, and the methods behind it
+
+* **Example project** (home page → *Try the example project*, or *Try … in the example project* on any tour page):
+  a small review on LLMs for title/abstract screening, with real PubMed and Europe PMC records (abstracts only for
+  open-access records), PubMed blocks with validation articles, an Ovid strategy to translate, and real example model
+  runs for screening and extraction. Built by `node tools/build-example.mjs` (public sources only).
+* **Methods & guidance** (sidebar, and *Method* on every step): the accepted method per step with its source
+  (PRISMA 2020, PRISMA-S, PRESS 2015, relative recall, Bramer deduplication and database combinations, dual screening,
+  SAFE, double extraction, PROBAST+AI, the 2025 joint statement on AI in evidence synthesis), what Sieve does,
+  and the gaps. Also as [docs/methods.md](docs/methods.md) (`node tools/build-methods.mjs`).
 
 ## Help on every page
 
@@ -66,11 +95,11 @@ IndexedDB; export the project file to move it or share it with a co-reviewer.
 |---|---|---|---|
 | 1 | Protocol | question, PICO/PICo/SPIDER/PCC, eligibility criteria (each with "if it fails" → exclude / snowball), extra rules | **Start from a document** (top of the step, or *New project from a document* on the home page): a ticket, protocol, PICO form or proposal fills in the question, PICO, known articles (PMIDs → validation set, DOIs looked up in PubMed) and search tables; the copy-paste assistant reads the whole document and adds eligibility criteria. You review everything before it is applied |
 | 2 | Search | concept blocks in PubMed syntax, validation + hold-out PMIDs; or a line-numbered **database strategy** (e.g. MEDLINE via Ovid from a ticket) | live counts, recall, missed-article diagnosis, term diagnostics, MeSH analyser, precision sample, versions + diff, term suggestions; **translations to MEDLINE/Embase (Ovid), Web of Science, PsycInfo (EBSCO) and ACM DL**: an instant rule-based draft with a list of what to check, then the copy-paste assistant checks the drafts and maps MeSH → Emtree / APA Thesaurus (JSON back into the app); counts per line, Markdown export |
-| 3 | Records | import PubMed / RIS / CSV / Excel / PMIDs, one export per database | automatic deduplication after every import (DOI, PMID, title + year; first import kept, links not deletions), near-duplicates to confirm, overlap per database (PRISMA-S), **recall per database**: every export is checked against the validation and hold-out articles, which validates each translated string; missing abstracts from PubMed |
+| 3 | Records | import PubMed / RIS / CSV / Excel / PMIDs, one export per database | automatic deduplication after every import following the Bramer method (DOI/PMID, then author/year/title/journal/volume/issue/normalised pages from strict to loose; first import kept, links not deletions; [docs/deduplication.md](docs/deduplication.md)), a review list for the cases the method checks by hand, RIS and MEDLINE/.nbib exports, overlap per database (PRISMA-S), **recall per database**: every export is checked against the validation and hold-out articles, which validates each translated string; missing abstracts from PubMed |
 | 4 | Verify | fix flagged records | Crossref: DOI ↔ title ↔ year, publication type, supplement/erratum, shared wrong links, DOI by title |
-| 5 | Full text | drop PDFs named by record ID, paste text | Europe PMC open access, Unpaywall links, publisher pages via the local helper, worklist CSV |
+| 5 | Full text | retrieve open copies, download remaining PDFs through your library, add PDFs or a folder, paste text | Europe PMC, PubMed Central, arXiv and Unpaywall PDF retrieval; optional local helper; HTML manual-download page and CSV worklist; PDF matching by DOI/title |
 | 6 | Screening | decide per record (title/abstract, then full text) | model runs per criterion with quotes, quote check against the source, priority sorting, κ / sensitivity vs. you, Excel export |
-| 7 | Extraction | import the form, verify cells | values + quotes per field, core-only rule by year, "accept where models agree", Excel in form layout, pivot tables |
+| 7 | Extraction | import the form, verify cells | values + quotes per field, core-only rule by year, "accept where models agree", Excel in form layout, pivot tables, **Check the runs** (completeness, quotes verified verbatim in the full text, core-only rule, agreement between runs); full texts are fitted to the prompt without losing the results (references dropped, results paragraphs kept); start here directly with an already screened list ("screened outside Sieve") |
 | 8 | Report | – | PRISMA 2020 counts + SVG, draft methods paragraph, search appendix, project export |
 
 ## Local models
@@ -94,6 +123,7 @@ npm run test:e2e              # the real app in headless Chrome (needs Python 3 
 node tests/e2e.mjs ticket.docx            # same, with a real document (stays local)
 SIEVE_LOCAL_DOCS=~/tickets npm test       # also run every .docx in a local folder through importer + translator
 node tools/translate.mjs ticket.docx --strategy V2 --out translations.md   # translations from the command line
+node tools/check-extraction.mjs project.json [--answers dir/]           # validate extraction runs against the full texts
 ```
 
 The fixtures are synthetic (`tests/fixtures.mjs`); real tickets and student data stay outside the repository.
@@ -121,10 +151,7 @@ importer on other sheets than the one it was built on, the publisher-page fetch.
 
 ## Open items
 
-* Two-reviewer mode (independent decisions, conflict resolution) and blinding of model decisions.
-* Active-learning ordering of records for large title/abstract sets (ASReview-style).
-* Risk-of-bias / quality appraisal as a form like extraction.
-* A ChatGPT / Claude app (MCP connector) so researchers can run the pipeline inside their subscription.
+See [docs/TODO.md](docs/TODO.md) (priorities, untested parts, methodological gaps from [docs/methods.md](docs/methods.md)).
 
 ## Layout
 
@@ -140,6 +167,8 @@ site/            the app (static, ES modules, no build)
 sieve/           python -m sieve run | serve
 colab/           Colab notebook for job files
 tests/           node unit tests (npm test) and the headless-Chrome browser test (npm run test:e2e)
-tools/           translate.mjs (strategy translations from the command line), build-gpt.mjs (writes gpt/)
+tools/           translate.mjs (strategy translations), build-gpt.mjs (writes gpt/), build-methods.mjs (docs/methods.md),
+                 build-example.mjs (site/examples/), check-extraction.mjs (validate extraction runs)
+examples/runs/   example model outputs used by the example project
 gpt/             instructions + knowledge file for the Sieve GPT in ChatGPT
 ```
