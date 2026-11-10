@@ -6,12 +6,29 @@ import { h, clear, toast, copy, fmt, pct, wilson, today, slug, sleep } from "../
 import { card, btn, help, field, input, textarea, select, row, table, runPanel, modal, progress, badge } from "../ui.js";
 import { pmQuery, pmBlock, blockTerms, toOvid, toWos, diffBlocks } from "../query.js";
 import { pmCount, pmHits, pmSummaries, pmFetch, pmIds } from "../apis.js";
+import { strategiesCard } from "./strategies.js";
+import { parseStrategyText, translateStrategy, formatTranslation } from "../strategy.js";
 import { SYSTEM_SEARCH, searchFromProtocolPrompt, searchBlocksSchema, suggestTermsPrompt, suggestSchema, titleJudgePrompt, titleJudgeSchema } from "../prompts.js";
 
 export function render(m, ctx) {
   const p = ctx.project, S = p.search;
   m.append(h("p", { class: "lead" }, "Build the string as concept blocks (terms within a block are OR-ed, include blocks are AND-ed, exclude blocks are removed with NOT). "
     + "Test every change in PubMed: the goal is fewer records without losing any article from the validation set."));
+
+  // Jump bar: the page is long, and the known articles drive every test.
+  const sections = [];
+  const sec = (id, label, el) => { el.id = `sec-${id}`; sections.push([id, label]); m.append(el); return el; };
+  const nav = h("nav", { class: "jumpbar" });
+  m.append(nav);
+
+  // ---------------------------------------------------------------- known articles (first: everything is tested against them)
+  sec("known", `Known articles (${S.validation.length} + ${S.holdout.length})`, h("section", { class: "card known" },
+    h("h3", {}, "Known articles: validation & hold-out sets"),
+    help("Every test of the search string (here in PubMed, and per database in step 3 after you import the exports) checks whether these articles are found. "
+      + "Validation = must be found and used while tuning (seed articles, known includes). Hold-out = relevant articles you do NOT tune on (e.g. references from the proposal): they show whether the string generalises. "
+      + "\"Start from a document\" in step 1 fills these from a ticket or proposal."),
+    h("div", { class: "grid2" }, pmidSetCard(ctx, "validation", `Validation set (${S.validation.length})`, "Must be found. Used while tuning."),
+      pmidSetCard(ctx, "holdout", `Hold-out set (${S.holdout.length})`, "Not used while tuning. Tests for overfitting."))));
 
   // ---------------------------------------------------------------- blocks
   const blocksEl = h("div", { class: "blocks" });
@@ -20,7 +37,11 @@ export function render(m, ctx) {
     S.blocks.forEach((b, i) => blocksEl.append(blockEditor(ctx, b, i, drawBlocks)));
   };
   drawBlocks();
-  m.append(card("Concept blocks",
+  // A strategy loaded from a ticket comes first when there are no PubMed blocks yet.
+  const strategies = strategiesCard(ctx);
+  const strategiesFirst = S.strategies?.length && !S.blocks.length;
+  if (strategiesFirst) sec("strategies", "Database strategies", strategies);
+  sec("blocks", "PubMed blocks", card("Concept blocks (PubMed)",
     row(btn("+ Include block", () => { S.blocks.push({ id: uid(S.blocks, "block"), label: "New concept", role: "include", terms: [] }); ctx.save(); drawBlocks(); }),
       btn("+ Exclude block", () => { S.blocks.push({ id: uid(S.blocks, "excl"), label: "Exclude: …", role: "exclude", terms: [] }); ctx.save(); drawBlocks(); }),
       h("span", { class: "spacer" }),
@@ -29,29 +50,27 @@ export function render(m, ctx) {
       " · proximity: ", h("code", {}, "NEAR/4(AI | machine learning ; implemented | deployed)[tiab]"), ". Lines starting with # are ignored (handy to switch a term off)."),
     blocksEl));
 
+  if (!strategiesFirst) sec("strategies", "Database strategies", strategies);
+
   // ---------------------------------------------------------------- test
   const testEl = h("div");
   drawTest(testEl, ctx);
-  m.append(card("Test in PubMed", testEl));
-
-  // ---------------------------------------------------------------- validation sets
-  m.append(h("div", { class: "grid2" }, pmidSetCard(ctx, "validation", "Validation set",
-    "Articles that MUST be found (seed articles, known includes). Used while tuning."),
-  pmidSetCard(ctx, "holdout", "Hold-out set",
-    "Relevant articles NOT used while tuning (e.g. references from the proposal). Tests for overfitting.")));
+  sec("test", "Test in PubMed", card("Test in PubMed", testEl));
 
   // ---------------------------------------------------------------- diagnostics
   const diag = h("div");
-  m.append(card("Term diagnostics",
+  sec("diagnostics", "Diagnostics", card("Term diagnostics",
     help("For each term: records it brings in (within the rest of the query), records ONLY this term brings in (its unique contribution, i.e. what you lose by removing it), "
       + "and validation articles that depend on it. Generic terms with many unique hits and no validation articles are noise."),
     row(field("Block", select("", [["", "choose a block…"], ...S.blocks.filter(b => b.enabled !== false).map(b => [b.id, b.label])], v => v && termDiagnostics(ctx, v, diag)))),
     diag));
 
-  m.append(meshCard(ctx));
-  m.append(sampleCard(ctx));
-  m.append(versionsCard(ctx));
-  m.append(translationsCard(ctx));
+  sec("mesh", "MeSH", meshCard(ctx));
+  sec("sample", "Precision sample", sampleCard(ctx));
+  sec("versions", "Versions", versionsCard(ctx));
+  sec("translations", "Translations (blocks)", translationsCard(ctx));
+  nav.append(h("span", { class: "muted small" }, "Jump to:"), ...sections.map(([id, label]) =>
+    h("button", { class: "btn ghost sm", onclick: () => document.getElementById(`sec-${id}`)?.scrollIntoView({ behavior: "smooth", block: "start" }) }, label)));
 }
 
 function uid(list, base) { let i = list.length + 1; while (list.some(b => b.id === `${base}${i}`)) i++; return `${base}${i}`; }
@@ -174,8 +193,10 @@ function pmidSetCard(ctx, key, title, desc) {
       const items = lines.map(l => { const m = l.match(/^(\d{5,9})\s*(.*)$/); return m && { pmid: m[1], label: m[2] }; }).filter(Boolean);
       const prev = Object.fromEntries(S[key].map(v => [v.pmid, v]));
       try {
-        const sums = await pmSummaries(items.filter(i => !i.label).map(i => i.pmid));
-        S[key] = items.map(i => ({ ...prev[i.pmid], pmid: i.pmid, label: i.label || sums[i.pmid]?.title || prev[i.pmid]?.label || "", year: prev[i.pmid]?.year || sums[i.pmid]?.year || "" }));
+        // Titles and DOIs are looked up so the records step can match these articles in every database export.
+        const sums = await pmSummaries(items.filter(i => !i.label || !prev[i.pmid]?.doi).map(i => i.pmid));
+        S[key] = items.map(i => ({ ...prev[i.pmid], pmid: i.pmid, label: i.label || sums[i.pmid]?.title || prev[i.pmid]?.label || "", title: sums[i.pmid]?.title || prev[i.pmid]?.title || "",
+          doi: prev[i.pmid]?.doi || sums[i.pmid]?.doi || "", year: prev[i.pmid]?.year || sums[i.pmid]?.year || "" }));
         ctx.save(); toast(`${S[key].length} articles`); ctx.rerender();
       } catch (e) { toast(e.message, "err"); }
     }), h("span", { class: "muted small" }, `${S[key].length} articles`)));
@@ -348,13 +369,26 @@ function translationsCard(ctx) {
   const S = ctx.project.search;
   const out = h("div");
   const show = which => {
-    const r = which === "wos" ? toWos(S.blocks) : toOvid(S.blocks, which);
+    const r = which === "wos" ? toWos(S.blocks) : which === "medline" || which === "embase" ? toOvid(S.blocks, which) : viaStrategy(S, which);
     clear(out).append(row(btn("Copy", () => copy(r.text), "sm")), h("pre", {}, r.text),
       r.warnings.length && h("ul", { class: "small" }, r.warnings.map(w => h("li", { class: "muted" }, w))));
   };
   return card("Translations for other databases",
     help("Generated from the blocks. Always run them line by line in the database and record the counts: field codes and subject headings differ."),
-    row(btn("Ovid MEDLINE", () => show("medline")), btn("Embase (Ovid)", () => show("embase")), btn("Web of Science", () => show("wos"))), out);
+    row(btn("Ovid MEDLINE", () => show("medline")), btn("Embase (Ovid)", () => show("embase")), btn("Web of Science", () => show("wos")),
+      btn("PsycInfo (EBSCO)", () => show("psycinfo")), btn("ACM DL", () => show("acm")),
+      btn("→ as database strategy", () => {
+        const st = parseStrategyText(toOvid(S.blocks, "medline").text, "From the PubMed blocks (Ovid MEDLINE)");
+        (S.strategies ||= []).push({ ...st, id: `st-blocks-${Date.now().toString(36)}`, imported: today(), source: "concept blocks" });
+        ctx.save(); ctx.rerender(); toast("Added under Database strategies: check it with the assistant there");
+      }, "ghost")), out);
+}
+
+// PsycInfo and ACM go through the line-strategy translator: blocks → Ovid MEDLINE lines → target.
+function viaStrategy(S, target) {
+  const st = parseStrategyText(toOvid(S.blocks, "medline").text, "blocks");
+  const r = translateStrategy(st, target, { headings: S.headingMap });
+  return { text: `${formatTranslation(r)}\n\nAs one string:\n${r.single}`, warnings: r.warnings };
 }
 
 // ------------------------------------------------------------------ assistant tasks

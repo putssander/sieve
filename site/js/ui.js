@@ -2,7 +2,7 @@
 // through the chosen route (copy-paste chat, API key, or a job file for Colab / local GPU).
 
 import { h, clear, copy, toast, download, pickFile, extractJson, pool, slug, esc } from "./util.js";
-import { call, KINDS, CHAT_SITES } from "./llm.js";
+import { call, KINDS, CHAT_SITES, chatSite, SIEVE_GPT_URL } from "./llm.js";
 import { getSettings, setSettings } from "./store.js";
 
 export const card = (title, ...body) => h("section", { class: "card" }, title && h("h3", {}, title), ...body);
@@ -149,7 +149,7 @@ function chatPanel(task, b, runName) {
   for (let i = 0; i < task.items.length; i += size) chunks.push(task.items.slice(i, i + size));
   let idx = 0, attach = false;
   const box = h("div", { class: "chat" });
-  const site = CHAT_SITES[b.chat] || CHAT_SITES.chatgpt;
+  const site = chatSite(b);
 
   function render() {
     clear(box);
@@ -161,11 +161,12 @@ function chatPanel(task, b, runName) {
         chunks.length > 1 && btn("◀", () => { idx = Math.max(0, idx - 1); render(); }, "ghost"),
         chunks.length > 1 && btn("▶", () => { idx = Math.min(chunks.length - 1, idx + 1); render(); }, "ghost")),
       h("ol", { class: "steps" },
-        h("li", {}, btn("1 · Copy prompt", () => copy(prompt), "primary"), " ",
+        h("li", {}, btn("1 · Copy prompt", () => copy(task.build(items, { attachments: attach }).prompt), "primary"), " ",
           h("details", { class: "inline" }, h("summary", {}, `view (${Math.round(prompt.length / 1000)}k characters)`), h("pre", { class: "prompt" }, prompt))),
         h("li", {}, h("a", { class: "btn", href: site.url, target: "_blank", rel: "noopener" }, `2 · Open ${site.label}`), " ",
           h("a", { class: "small", href: (site === CHAT_SITES.chatgpt ? CHAT_SITES.claude : CHAT_SITES.chatgpt).url, target: "_blank", rel: "noopener" },
             `or ${(site === CHAT_SITES.chatgpt ? CHAT_SITES.claude : CHAT_SITES.chatgpt).label}`),
+          !b.gptUrl && b.chat !== "sievegpt" && h("a", { class: "small muted", href: "#/settings" }, SIEVE_GPT_URL ? " · use the Sieve GPT" : " · make a Sieve GPT"),
           help("Start a new chat, paste the prompt and send. A reasoning/thinking model gives the best screening. ",
             task.attachHint ? "If you have the PDFs (e.g. via university access), tick the box below and attach them in the chat." : "")),
         h("li", {}, answer, row(btn("3 · Save answer", () => {

@@ -187,3 +187,80 @@ Return JSON {"question", "elements": [{"key", "label", "text"}], "criteria": [{"
 === DOCUMENT ===
 ${docText.slice(0, 30000)}`;
 }
+
+// ------------------------------------------------------------------ load a document
+// Reads a ticket / protocol / PICO form / proposal and returns everything Sieve can fill in.
+const DBS = ["medline", "embase", "wos", "psycinfo", "acm"];
+export const documentImportSchema = obj({
+  question: str("the review question(s) as written; empty if absent"),
+  elements: arr(obj({ label: { type: "string", enum: ["Population", "Intervention", "Comparison", "Outcome", "Context", "Concept", "Design"] }, text: str() })),
+  criteria: arr(obj({ label: str("short label"), description: str("what must be true, decidable from title/abstract"), fail_decision: { type: "string", enum: ["Exclude", "Exclude, but save for snowballing"] } })),
+  known_articles: arr(obj({ pmid: str("digits only, or empty"), doi: str("or empty"), title: str("or empty") })),
+  strategies: arr(obj({
+    name: str("the heading above the table, e.g. 'V2 – MEDLINE via Ovid'"),
+    database: str("database/platform the lines are written for, e.g. 'MEDLINE (Ovid)'"),
+    lines: arr(obj({ n: { type: "integer", description: "line number; 0 for a note row without a search" }, label: str("concept / row label"), query: str("the search EXACTLY as written"), count: str("number of results if given, else empty") })),
+  })),
+  notes: str("open questions, inconsistencies (e.g. line references that do not add up), and anything you could not place"),
+});
+
+export function documentImportPrompt(docText, name) {
+  return `Read this research document (search ticket, protocol, PICO form or proposal) and extract what a systematic-review workspace needs. Copy; do not invent.
+
+Rules:
+- question: the review/research question(s) exactly as written (all sub-questions).
+- elements: PICO / PICo / PCC elements only if the document states or clearly implies them.
+- criteria: eligibility criteria a screener can apply to a title/abstract, derived from the document (inclusion and exclusion). Use "Exclude, but save for snowballing" for reviews that should be mined for references.
+- known_articles: articles the authors name as relevant (seed/validation articles, key references). Copy PMIDs and DOIs exactly; NEVER guess a PMID.
+- strategies: every numbered search strategy / search table. One entry per table, every row a line, the query copied EXACTLY (keep the database syntax, quotes and brackets). If rows have no explicit numbers, number them in order the way the combination lines (e.g. "1 or 2", "13 not 17") expect, and mention doubtful numbering in notes. Tables with one row per database (translations) are also strategies: use the database name as label and n = row number.
+- notes: inconsistencies you notice (typos such as a missing "or" between phrases, line references that do not match, unbalanced brackets).
+
+Return JSON {"question", "elements", "criteria", "known_articles", "strategies", "notes"}.
+
+=== DOCUMENT: ${name} ===
+${docText.slice(0, 60000)}`;
+}
+
+// ------------------------------------------------------------------ translate a search strategy
+export const translationSchema = obj({
+  heading_map: arr(obj({ mesh: str("MeSH heading as used in the MEDLINE strategy"), embase: str("Emtree preferred term, empty if none"), psycinfo: str("APA Thesaurus preferred term, empty if none") })),
+  databases: arr(obj({
+    database: { type: "string", enum: DBS },
+    lines: arr(obj({ n: { type: "integer" }, label: str(), query: str("ready to paste in this database") })),
+    one_string: str("the complete final search as one string, ready to paste"),
+    changes: str("what you changed compared to the draft and why"),
+    checks: str("what the searcher must still verify in this database"),
+  })),
+  notes: str(),
+});
+
+export const DB_RULES = `Database rules:
+- medline = MEDLINE via Ovid: exp Heading/, .ti,ab,kf., adjN, ? (0-1 char), # (1 char), * truncation, line numbers 1, 2, or/1-3.
+- embase = Embase via Ovid: Emtree headings in lower case (exp heading/), .ti,ab,kw. (kw = author keywords), Embase publication types (.pt.) and Emtree terms for study types.
+- wos = Web of Science Core Collection, Advanced Search: TS=, TI=, AB=, AK=, DT=, PY=; NEAR/n; $ (0-1 char), ? (1 char); history #1 AND #2. No subject headings.
+- psycinfo = APA PsycInfo on EBSCOhost: DE "APA Thesaurus term" (explode = tick Explode, which writes out the narrower DE terms), TI, AB, KW field codes; Nn / Wn proximity; # (0-1 char), ? (1 char); history S1 AND S2; limiters for year/language/population (PO Human, PO Animal).
+- acm = ACM Digital Library, Edit Query box: Title:(...), Abstract:(...), Keyword:(...); AND/OR/NOT in capitals; no subject headings; wildcards (* ?) are IGNORED inside quotes and not allowed at the start of a word; no search history (one string); proximity only as "word word"~n without wildcards; year via the date filter.`;
+
+export function translationPrompt(strategy, drafts, headings) {
+  return `You are translating a systematic-review search strategy from MEDLINE (Ovid) to other databases. A rule-based translator already made a draft for each database, with warnings about what it could not translate. Check and improve each draft:
+- keep the meaning and the recall of the source strategy; never drop a concept silently;
+- map every MeSH heading to the best Emtree term and APA Thesaurus term (or say that none fits), and use those in Embase and PsycInfo;
+- fix syntax that the draft got wrong for that database, and resolve the warnings where you can;
+- keep the line structure where the database has a search history, so the searcher can record counts per line.
+
+${DB_RULES}
+
+=== SOURCE STRATEGY: ${strategy.name} (${strategy.database || "MEDLINE (Ovid)"}) ===
+${strategy.lines.map(l => `${l.deferred ? "(no number)" : l.n} | ${l.label || ""} | ${l.query}${l.count ? ` | ${l.count} results` : ""}`).join("\n")}
+
+=== SUBJECT HEADINGS IN THE STRATEGY ===
+${headings.length ? headings.join("; ") : "(none)"}
+
+${drafts.map(d => `=== DRAFT: ${d.target} (${d.label}) ===
+${d.text}
+One string: ${d.single.length > 6000 ? `${d.single.slice(0, 6000)}…` : d.single}
+Warnings:
+${d.warnings.map(w => `- ${w}`).join("\n") || "- none"}`).join("\n\n")}
+
+Return JSON {"heading_map": [{"mesh", "embase", "psycinfo"}], "databases": [{"database", "lines": [{"n", "label", "query"}], "one_string", "changes", "checks"}], "notes"} with one entry per database: ${drafts.map(d => d.target).join(", ")}.`;
+}

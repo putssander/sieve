@@ -39,7 +39,7 @@ export function emptyProject(name = "New review") {
       ], documents: [] },
     criteria: [],
     screening_rules: "",
-    search: { blocks: [], validation: [], holdout: [], versions: [], sample: null, last: null },
+    search: { blocks: [], validation: [], holdout: [], versions: [], sample: null, last: null, strategies: [], headingMap: {} },
     records: [],
     resolve: {},
     fulltext: {},

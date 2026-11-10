@@ -12,6 +12,7 @@ import * as fulltext from "./views/fulltext.js";
 import * as screening from "./views/screening.js";
 import * as extraction from "./views/extraction.js";
 import * as report from "./views/report.js";
+import { pageHelpButton } from "./views/pagehelp.js";
 
 export const STEPS = [
   { id: "protocol", n: 1, label: "Protocol", sub: "question, PICO, criteria", view: protocol },
@@ -89,7 +90,8 @@ async function route() {
       const step = STEPS.find(s => s.id === parts[3]) || STEPS[0];
       renderSide();
       document.title = `${step.label} · ${current.name}`;
-      m.append(h("header", { class: "page-head" }, h("div", { class: "kicker" }, `Step ${step.n} of ${STEPS.length}`), h("h1", {}, step.label)));
+      m.append(h("header", { class: "page-head" }, h("div", { class: "page-tools" }, pageHelpButton(ctx, step.id)),
+        h("div", { class: "kicker" }, `Step ${step.n} of ${STEPS.length}`), h("h1", {}, step.label)));
       await step.view.render(m, ctx);
       const next = STEPS[STEPS.indexOf(step) + 1];
       if (next) m.append(h("div", { class: "next" }, h("a", { class: "btn", href: `#/p/${current.id}/${next.id}` }, `Next: ${next.label} →`)));

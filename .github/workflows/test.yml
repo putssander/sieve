@@ -1,0 +1,36 @@
+name: test
+
+# Unit tests for the parts that run without a browser: .docx reading, document analysis,
+# search-strategy parsing and translation (MEDLINE/Embase via Ovid, WoS, PsycInfo/EBSCO, ACM),
+# and the copy-paste prompts/schemas. No dependencies to install.
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  node:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm test
+
+  browser:
+    # The real app in headless Chrome: load a (synthetic) ticket, copy-paste assistant round trips,
+    # translations for all five databases. Uses PubMed for the optional title lookups.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: CHROME=$(which google-chrome || which chromium) npm run test:e2e

@@ -59,6 +59,12 @@ export async function pmHits(q, pmids) {
   return new Set(ids);
 }
 
+// PMID for a DOI ("" when PubMed does not have it, e.g. preprints).
+export async function pmidForDoi(doi) {
+  const ids = await pmIds(`"${String(doi).replace(/"/g, "")}"[aid]`, 2);
+  return ids.length === 1 ? ids[0] : "";
+}
+
 export async function pmSummaries(pmids) {
   const out = {};
   for (let i = 0; i < pmids.length; i += 200) {
@@ -155,7 +161,14 @@ export async function unpaywall(doi) {
 }
 
 // ------------------------------------------------------------------ local helper (python -m sieve serve)
-export async function localHealth() {
+// A public page (e.g. GitHub Pages) that contacts 127.0.0.1 makes Chrome ask permission to "access other
+// apps and services on this device". So the public site only does that after the user opted in
+// (button under Models & keys / Full text, which explains the prompt first). Served locally, no prompt.
+export const isLocalPage = () => ["localhost", "127.0.0.1", "[::1]"].includes(location.hostname);
+export const localHelperAllowed = () => isLocalPage() || !!getSettings().localHelperOptIn;
+
+export async function localHealth({ force = false } = {}) {
+  if (!force && !localHelperAllowed()) return null;
   const base = localBase();
   try {
     const r = await fetch(`${base}/api/health`, { signal: AbortSignal.timeout(1500) });
@@ -164,7 +177,7 @@ export async function localHealth() {
 }
 function localBase() {
   // When the GUI itself is served by the helper, use the same origin.
-  return location.port === "8765" ? location.origin : getSettings().localUrl.replace(/\/$/, "");
+  return isLocalPage() ? location.origin : getSettings().localUrl.replace(/\/$/, "");
 }
 export async function localFetch(url) {
   const r = await fetch(`${localBase()}/api/fetch?url=${encodeURIComponent(url)}`);

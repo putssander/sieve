@@ -1,4 +1,7 @@
-import { h, pickFile, toast, docxToText, pdfToText, slug, clear } from "../util.js";
+import { h, pickFile, toast, pdfToText, slug, clear } from "../util.js";
+import { readDocument } from "../docimport.js";
+import { blocksToText } from "../docx.js";
+import { pickDocument, importDialog, takePending } from "./docload.js";
 import { card, btn, help, field, input, textarea, select, row, runPanel, modal } from "../ui.js";
 import { DECISIONS, SYSTEM_SEARCH, protocolSchema, protocolFromDocPrompt } from "../prompts.js";
 
@@ -14,6 +17,10 @@ export function render(m, ctx) {
   const save = () => ctx.save();
   m.append(h("p", { class: "lead" }, "The protocol drives everything after it: the search assistant uses the question and PICO, "
     + "and every screening prompt is built from the criteria below."));
+
+  m.append(documentsCard(ctx));
+  const pending = takePending(p.id);
+  if (pending) setTimeout(() => importDialog(ctx, pending), 0);
 
   m.append(card("Review",
     field("Project name", input(p.name, v => { p.name = v; save(); })),
@@ -50,24 +57,38 @@ export function render(m, ctx) {
     field("Extra screening rules (shown to the model as-is)", textarea(p.screening_rules, v => { p.screening_rules = v; save(); }, { rows: 6, class: "code",
       placeholder: "- Clinical topic does not imply a clinical data source.\n- Reviews: exclude but save for snowballing." }))));
 
-  // Documents: proposal, PICO form, ticket... used as input for the protocol assistant.
-  const docs = card("Documents", help("Attach the proposal, a PICO form or an earlier prompt (.docx, .pdf, .md, .txt). The assistant can draft the fields above from a document."),
-    row(btn("Attach document", async () => {
-      const f = await pickFile(".docx,.pdf,.txt,.md");
-      if (!f) return;
-      try {
-        const buf = await f.arrayBuffer();
-        const text = f.name.endsWith(".docx") ? await docxToText(buf) : f.name.endsWith(".pdf") ? (await pdfToText(buf)).text : new TextDecoder().decode(buf);
-        pr.documents.push({ name: f.name, kind: "attached", text });
-        save(); ctx.rerender();
-      } catch (e) { toast(e.message, "err"); }
-    })),
-    pr.documents.map((d, i) => h("details", { class: "block", style: { marginBottom: "8px" } },
+}
+
+// At the top of the step, so it is the first thing you see: a ticket, protocol, PICO form or
+// proposal fills in what it already contains; the assistant drafts the rest from the same text.
+function documentsCard(ctx) {
+  const p = ctx.project, pr = p.protocol;
+  const load = async () => {
+    try {
+      const a = await pickDocument();
+      if (a) importDialog(ctx, a);
+    } catch (e) { toast(e.message, "err"); }
+  };
+  const attachOnly = async () => {
+    const f = await pickFile(".docx,.pdf,.txt,.md");
+    if (!f) return;
+    try {
+      const text = blocksToText(await readDocument(f.name, await f.arrayBuffer(), { pdfToText }));
+      pr.documents.push({ name: f.name, kind: "attached", text });
+      ctx.save(); ctx.rerender();
+    } catch (e) { toast(e.message, "err"); }
+  };
+  return h("section", { class: "card start-doc" },
+    h("h3", {}, "Start from a document"),
+    help("Already have a search ticket, protocol, PICO form or proposal? Load it (.docx, .pdf, .txt) and Sieve fills in what it finds: the review question, PICO elements, "
+      + "known articles (PMIDs/DOIs → validation or hold-out set) and search tables (→ step 2, with translations for Embase, Web of Science, PsycInfo and ACM). "
+      + "You see the list first. The assistant can then draft the eligibility criteria from the same document."),
+    row(btn("Load document…", load, "primary"), btn("Attach without filling in", attachOnly, "ghost")),
+    pr.documents.map((d, i) => h("details", { class: "block", style: { marginTop: "8px" } },
       h("summary", {}, h("strong", {}, d.name), " ", h("span", { class: "badge" }, d.kind || "document"), ` · ${Math.round(d.text.length / 100) / 10}k characters`),
       h("pre", {}, d.text.slice(0, 6000)),
       row(btn("Draft protocol from this document", () => draftFromDoc(ctx, d), "primary"),
-        btn("Remove", () => { pr.documents.splice(i, 1); save(); ctx.rerender(); }, "danger sm")))));
-  m.append(docs);
+        btn("Remove", () => { pr.documents.splice(i, 1); ctx.save(); ctx.rerender(); }, "danger sm")))));
 }
 
 function uniqueId(list, label) {

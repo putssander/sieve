@@ -1,6 +1,7 @@
 import { h, toast, fmt, pickFile, pdfToText, download, toCsv, pool, clear } from "../util.js";
 import { card, btn, help, row, table, progress, badge, modal, select, textarea, field } from "../ui.js";
-import { europePmcFullText, unpaywall, localHealth, localFetch } from "../apis.js";
+import { europePmcFullText, unpaywall, localHealth, localFetch, localHelperAllowed } from "../apis.js";
+import { connectLocalHelper } from "./settings.js";
 import { getText, putText } from "../store.js";
 import { active } from "./records.js";
 import { consensus } from "./screening.js";
@@ -25,7 +26,9 @@ export async function render(m, ctx) {
     row(field("Records", select(scope, [["tainc", "included or unclear after title/abstract screening (or not screened)"], ["all", "all unique records"]], v => { sessionStorage.setItem("ft-scope", v); ctx.rerender(); }))),
     h("div", { class: "stats" }, h("div", { class: "stat" }, h("b", {}, `${got.length}/${recs.length}`), h("span", {}, "with full text"))),
     row(btn("Fetch open-access texts (Europe PMC)", () => fetchOA(ctx, recs.filter(r => !got.includes(r)), prog), "primary"),
-      health ? btn("Fetch publisher pages via local helper", () => fetchLocal(ctx, recs.filter(r => !got.includes(r)), prog)) : h("span", { class: "muted small" }, "publisher pages: start `python -m sieve serve` to enable"),
+      health ? btn("Fetch publisher pages via local helper", () => fetchLocal(ctx, recs.filter(r => !got.includes(r)), prog))
+        : localHelperAllowed() ? h("span", { class: "muted small" }, "publisher pages: start `python -m sieve serve` to enable")
+          : btn("Publisher pages via the local helper…", () => connectLocalHelper(ctx), "ghost"),
       btn("Add PDFs…", () => addPdfs(ctx)),
       btn("Worklist of missing (CSV)", () => worklist(ctx, recs.filter(r => !got.includes(r))))),
     prog.el));

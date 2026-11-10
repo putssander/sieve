@@ -14,10 +14,63 @@ export const KINDS = {
   compatible: { label: "Local / Colab server (OpenAI-compatible)", needsKey: false, model: "qwen3:8b", baseUrl: "http://localhost:11434/v1" },
 };
 
+// The shared Sieve GPT in ChatGPT (instructions + knowledge from gpt/, built by tools/build-gpt.mjs).
+// Paste the link here once it is published; until then the option is hidden.
+export const SIEVE_GPT_URL = "";
+
 export const CHAT_SITES = {
   chatgpt: { label: "ChatGPT", url: "https://chatgpt.com/" },
   claude: { label: "Claude", url: "https://claude.ai/new" },
+  ...(SIEVE_GPT_URL ? { sievegpt: { label: "Sieve GPT", url: SIEVE_GPT_URL } } : {}),
 };
+
+// Where "Open ChatGPT" goes for a copy-paste route: the user's own GPT link wins.
+export function chatSite(b) {
+  if (b?.gptUrl) return { label: "your GPT", url: b.gptUrl };
+  return CHAT_SITES[b?.chat] || CHAT_SITES.chatgpt;
+}
+
+// ------------------------------------------------------------------ available models
+// Asks the provider which models this key can use, newest first, so defaults never go stale.
+const NOT_CHAT = /(embed|tts|whisper|dall-e|image|audio|realtime|transcribe|moderation|search|computer-use|babbage|davinci|instruct|codex)/i;
+
+export async function listModels(b) {
+  const get = async (url, headers) => {
+    const r = await fetch(url, { headers });
+    const txt = await r.text();
+    if (!r.ok) { let m = txt.slice(0, 300); try { const j = JSON.parse(txt); m = j.error?.message || m; } catch { /* raw */ } throw new Error(`HTTP ${r.status}: ${m}`); }
+    return JSON.parse(txt);
+  };
+  if (b.kind === "anthropic") {
+    const out = [];
+    let after = "";
+    for (let page = 0; page < 5; page++) {
+      const j = await get(`https://api.anthropic.com/v1/models?limit=100${after ? `&after_id=${encodeURIComponent(after)}` : ""}`, {
+        "x-api-key": b.apiKey, "anthropic-version": ANTHROPIC_VERSION, "anthropic-dangerous-direct-browser-access": "true" });
+      out.push(...(j.data || []).map(m => ({ id: m.id, label: m.display_name || m.id, created: Date.parse(m.created_at) || 0 })));
+      if (!j.has_more) break;
+      after = j.last_id;
+    }
+    return sortModels(out);
+  }
+  if (b.kind === "openai" || b.kind === "compatible") {
+    const base = (b.baseUrl || (b.kind === "openai" ? "https://api.openai.com/v1" : KINDS.compatible.baseUrl)).replace(/\/$/, "");
+    const j = await get(`${base}/models`, b.apiKey ? { authorization: `Bearer ${b.apiKey}` } : {});
+    const list = (j.data || j.models || []).map(m => ({ id: m.id || m.name, label: m.id || m.name, created: (m.created || 0) * 1000 }));
+    return sortModels(b.kind === "openai" ? list.filter(m => /^(gpt-|o\d|chatgpt-)/.test(m.id) && !NOT_CHAT.test(m.id)) : list);
+  }
+  return [];
+}
+
+const sortModels = list => list.filter(m => m.id).sort((a, b) => b.created - a.created || a.id.localeCompare(b.id));
+
+// The model to suggest from a fetched list: the newest flagship (no mini/nano/haiku unless that is all there is).
+export function suggestModel(kind, models) {
+  if (!models?.length) return "";
+  if (kind === "anthropic") return (models.find(m => /^claude-opus-/.test(m.id)) || models[0]).id;
+  if (kind === "openai") return (models.find(m => /^gpt-\d/.test(m.id) && !/(mini|nano|-\d{4}-\d{2}-\d{2}$)/.test(m.id)) || models[0]).id;
+  return models[0].id;
+}
 
 export async function call(b, { system, prompt, schema, name = "result", signal }) {
   if (b.kind === "openai") return callOpenAI(b, system, prompt, schema, name, signal);
@@ -51,6 +104,8 @@ async function callOpenAI(b, system, prompt, schema, name, signal) {
   return { json: extractJson(text), usage: j.usage, model: j.model };
 }
 
+const ANTHROPIC_VERSION = "2026-10-21";
+
 // Models that accept the server-side refusal fallback ("default" routing by refusal category).
 const FALLBACK_MODELS = ["claude-opus-5-5", "claude-opus-5", "claude-fable-5-1", "claude-sonnet-5-5"];
 
@@ -58,7 +113,7 @@ async function callAnthropic(b, system, prompt, schema, signal) {
   const model = b.model || KINDS.anthropic.model;
   const headers = {
     "x-api-key": b.apiKey,
-    "anthropic-version": "2026-10-21",
+    "anthropic-version": ANTHROPIC_VERSION,
     "anthropic-dangerous-direct-browser-access": "true",
   };
   const body = {

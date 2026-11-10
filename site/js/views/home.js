@@ -2,6 +2,7 @@ import { h, pickFile, toast, download, fmt } from "../util.js";
 import { listProjects, emptyProject, saveProject, importProject, deleteProject, exportProject, loadProject } from "../store.js";
 import { card, btn, help, table, row } from "../ui.js";
 import { STEPS } from "../app.js";
+import { pickDocument, setPending } from "./docload.js";
 
 export async function render(m, ctx) {
   m.append(h("header", { class: "page-head" }, h("h1", {}, "Sieve"),
@@ -20,6 +21,16 @@ export async function render(m, ctx) {
       await saveProject(p);
       ctx.go(`#/p/${p.id}/protocol`);
     }, "primary"),
+    btn("New project from a document…", async () => {
+      try {
+        const a = await pickDocument();
+        if (!a) return;
+        const p = emptyProject(a.name.replace(/\.(docx|pdf|txt|md)$/i, ""));
+        await saveProject(p);
+        setPending(p.id, a);
+        ctx.go(`#/p/${p.id}/protocol`);
+      } catch (e) { toast(e.message, "err"); }
+    }, "primary"),
     btn("Import project file", async () => {
       const f = await pickFile(".json");
       if (!f) return;
@@ -34,6 +45,8 @@ export async function render(m, ctx) {
         btn("Export", async e => { e.stopPropagation(); const full = await loadProject(p.id); download(`${p.id}.json`, await exportProject(full)); }, "sm"),
         btn("Delete", async e => { e.stopPropagation(); if (confirm(`Delete '${p.name}' from this browser?`)) { await deleteProject(p.id); ctx.rerender(); } }, "sm danger")) },
     ], projects, { empty: "No projects yet. Start a new one, import a project file, or open a demo below." }),
+    help("Have a search ticket, protocol or PICO form already? ", h("strong", {}, "New project from a document"),
+      " fills in the question, PICO, known articles and search tables, and the assistant drafts the rest (copy-paste, no key needed)."),
     help("Projects are stored in this browser only (IndexedDB). Export a project file to back it up or to share it with a co-reviewer."));
   m.append(list);
 

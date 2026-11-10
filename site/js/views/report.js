@@ -2,6 +2,7 @@ import { h, download, copy, fmt } from "../util.js";
 import { card, btn, help, row, table } from "../ui.js";
 import { exportProject } from "../store.js";
 import { toOvid, toWos } from "../query.js";
+import { TARGETS, translateStrategy, formatTranslation } from "../strategy.js";
 import { active } from "./records.js";
 import { consensus, isInclude } from "./screening.js";
 import { included } from "./extraction.js";
@@ -59,7 +60,19 @@ function methods(p, c) {
 function appendix(p) {
   const out = [`Search strategy appendix · ${p.name}`, ""];
   for (const v of p.search.versions) out.push(`## ${v.name} (${v.date}) · ${fmt(v.count)} records · validation ${v.recall} · hold-out ${v.holdout || "-"}`, v.note || "", v.query, "");
-  out.push("## Ovid MEDLINE", toOvid(p.search.blocks, "medline").text, "", "## Embase (Ovid)", toOvid(p.search.blocks, "embase").text, "", "## Web of Science", toWos(p.search.blocks).text);
+  if (p.search.blocks.length) out.push("## Ovid MEDLINE", toOvid(p.search.blocks, "medline").text, "", "## Embase (Ovid)", toOvid(p.search.blocks, "embase").text, "", "## Web of Science", toWos(p.search.blocks).text);
+  for (const st of (p.search.strategies || []).filter(s => s.kind === "lines")) {
+    out.push("", `# ${st.name}`);
+    for (const t of Object.keys(TARGETS)) {
+      const a = st.assistant?.databases?.[t];
+      const counts = st.counts?.[t] || {};
+      const r = translateStrategy(st, t, { headings: p.search.headingMap });
+      out.push("", `## ${TARGETS[t].label}${a ? " (checked by the assistant)" : ""}`,
+        a ? (a.lines || []).map(l => `${String(l.n).padEnd(4)} ${l.query}${counts[`a${l.n}`] ? `    (${counts[`a${l.n}`]})` : ""}`).join("\n")
+          : r.lines.filter(l => l.n !== null).map(l => `${(r.prefix + l.n).padEnd(4)} ${l.text}${counts[l.from] ? `    (${counts[l.from]})` : ""}`).join("\n"));
+      if (!r.history || a) out.push("", "As one string:", a ? a.one_string || "" : r.single);
+    }
+  }
   return out.join("\n");
 }
 
