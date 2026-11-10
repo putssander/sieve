@@ -18,15 +18,16 @@ export async function render(m, ctx) {
   };
   const projects = await listProjects();
   m.append(h("header", { class: "research-hero welcome-compact" },
-    h("div", { class: "hero-copy" }, h("div", { class: "eyebrow" }, "Your literature research workspace"),
-      h("h1", {}, projects.length ? "Welcome back to your research." : "Big questions. Clear next steps."),
-      h("p", { class: "lead" }, "Plan your review, find the evidence and keep every decision connected."),
+    h("div", { class: "hero-copy" }, h("div", { class: "eyebrow" }, "Step-by-step guidance for literature reviews ", h("span", { class: "badge warn" }, "work in progress")),
+      h("h1", {}, projects.length ? "Welcome back to your review." : "Your literature review, step by step, with frontier AI."),
+      h("p", { class: "lead" }, "Sieve guides you through a systematic or scoping review in eight steps, from question to evidence table, "
+        + "and shows how to use frontier models such as ChatGPT and Claude at each step. Every AI answer comes with quotes that Sieve checks against the papers. You make the decisions."),
       h("div", { class: "hero-actions" },
         projects.length
           ? h("a", { class: "btn primary", href: `#/p/${projects[0].id}/protocol` }, stageIcon("folder"), "Continue your review")
           : btn([stageIcon("protocol"), "Start a review"], createProject, "primary"),
         h("a", { class: "btn", href: "#/guide/protocol" }, stageIcon("search"), "Explore the steps")),
-      h("p", { class: "hero-reassurance" }, "No API key needed · AI is optional · Your work saves in this browser")),
+      h("p", { class: "hero-reassurance" }, "Works with your own ChatGPT or Claude · No API key needed · AI is optional · Your work stays in this browser")),
     h("div", { class: "home-brand-art", "aria-hidden": "true" },
       h("div", { class: "brand-art-orbit" }),
       h("img", { src: "assets/sieve-mark.svg", alt: "", width: 108, height: 108 }),

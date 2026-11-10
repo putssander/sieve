@@ -26,6 +26,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/configure-pages@v5
+      # Version shown at the bottom of every page: version from sieve/__init__.py, commit, build time (UTC).
+      - name: Write version.json
+        run: |
+          V=$(python3 -c "import re;print(re.search(r'__version__\s*=\s*\"([^\"]+)\"', open('sieve/__init__.py').read()).group(1))")
+          printf '{"version":"%s","commit":"%s","built":"%s"}\n' "$V" "${GITHUB_SHA::7}" "$(date -u +%Y-%m-%dT%H:%MZ)" > site/version.json
+          cat site/version.json
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site

@@ -13,6 +13,7 @@ import * as screening from "./views/screening.js";
 import * as extraction from "./views/extraction.js";
 import * as report from "./views/report.js";
 import { pageHelpButton } from "./views/pagehelp.js";
+import { getVersion, versionText } from "./version.js";
 import * as guide from "./views/guide.js";
 import * as methods from "./views/methods.js";
 import { stageIcon } from "./icons.js";
@@ -93,6 +94,9 @@ function renderSide() {
     h("a", { href: "#/guide/options", class: parts[2] === "options" ? "active" : "" }, "AI, tokens & local tools"),
     h("a", { href: "#/methods", class: parts[1] === "methods" ? "active" : "" }, "Methods & guidance"),
     h("a", { href: "#/settings", class: parts[1] === "settings" ? "active" : "" }, "Models & keys")));
+  const ver = h("div", { class: "side-version", title: "Sieve version, commit and build time" });
+  el.append(ver);
+  getVersion().then(v => { ver.textContent = versionText(v); });
 }
 
 async function route() {

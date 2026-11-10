@@ -56,6 +56,8 @@ await send("Runtime.enable"); await send("Page.enable"); await send("Network.ena
 await send("Page.navigate", { url: `${BASE}/` }); await sleep(800); await send("Page.reload", { ignoreCache: true }); await sleep(800);
 await send("Page.navigate", { url: `${BASE}/#/` }); await sleep(1500);
 check(await js(`return [...document.querySelectorAll("button")].some(b=>b.textContent.includes("New project from a document"))`), "home: 'New project from a document…' button");
+await sleep(500);
+check(/^Sieve \d+\.\d+\.\d+/.test(await js(`return document.querySelector(".side-version")?.textContent || ""`)), "sidebar: version shown at the bottom");
 
 // Simulate the file pick: analyse the document in the page with the app's own modules.
 const b64 = docBuf.toString("base64");

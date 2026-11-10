@@ -127,6 +127,7 @@ export async function updateProjectFromFile(obj) {
 
 export async function exportProject(p, { withTexts = false } = {}) {
   const out = structuredClone(p);
+  try { const { getVersion } = await import("./version.js"); out.exported = { at: new Date().toISOString(), sieve: await getVersion() }; } catch { /* outside the app */ }
   if (withTexts) for (const rid of Object.keys(out.fulltext || {})) out.fulltext[rid].text = await getText(p.id, rid);
   return JSON.stringify(out, null, 1);
 }

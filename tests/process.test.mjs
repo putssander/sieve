@@ -269,3 +269,11 @@ test("no hardcoded OpenAI model; the old built-in default is cleared, a chosen m
   const s = migrateSettings({ backends: [{ kind: "openai", model: "gpt-5.5" }, { kind: "openai", model: "gpt-5.5", modelChosen: true }, { kind: "anthropic", model: "claude-opus-5-5" }] });
   assert.deepEqual(s.backends.map(b => b.model), ["", "gpt-5.5", "claude-opus-5-5"]);
 });
+
+test("the version shown in the app matches sieve/__init__.py", async () => {
+  const py = await readFile(new URL("../sieve/__init__.py", import.meta.url), "utf8");
+  const v = JSON.parse(await readFile(new URL("../site/version.json", import.meta.url), "utf8"));
+  assert.equal(v.version, py.match(/__version__\s*=\s*"([^"]+)"/)[1]);
+  const { versionText } = await import("../site/js/version.js");
+  assert.equal(versionText({ version: "0.2.0", commit: "5f099df", built: "2026-11-10T19:58Z" }), "Sieve 0.2.0 · 5f099df · built 2026-11-10 19:58 UTC");
+});
