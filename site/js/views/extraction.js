@@ -11,6 +11,8 @@ import { active } from "./records.js";
 import { checkRun, agreement } from "../extractcheck.js";
 import { showEvidence } from "./evidence.js";
 import { consensus, isInclude, sourceText } from "./screening.js";
+import { robCard } from "./rob.js";
+import { secondReviewerCard } from "./team.js";
 
 const EMPTY = v => v === undefined || v === null || v === "" ;
 const isNR = v => /^(nr|na|n\/a|not reported|-)$/i.test(String(v || "").trim());
@@ -78,6 +80,13 @@ export async function render(m, ctx) {
     m.append(checkCard(ctx, texts));
     m.append(gridCard(ctx, recs, texts));
     m.append(pivotCard(ctx, recs));
+  }
+  if (recs.length) {
+    m.append(robCard(ctx, recs, { texts }));
+    const second = secondReviewerCard(ctx, { screening: [], extraction: recs.map(r => r.rid), rob: recs.map(r => r.rid), page: "extraction" },
+      { title: "Second reviewer: extraction and risk of bias", fields: ex.fields,
+        intro: "Outcome data by two people independently (MECIR C46, mandatory; C45 for study characteristics), risk of bias by two people (C53). Rapid reviews: a second person verifies critical data and risk of bias (rec. 12, 16). The second reviewer works in a blind copy." });
+    if (second) m.append(second);
   }
 }
 

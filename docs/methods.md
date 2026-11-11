@@ -28,7 +28,7 @@ Status: ✓ done · ◐ partly · ✗ missing
 - ✓ Every AI step is a fixed prompt + JSON schema, stored per run with model and date, next to the human decision; prompts can be downloaded.
 - ✓ Evidence quotes are checked word for word against the paper and can be opened highlighted in the text.
 - ✓ Quick scan: no AI-only step (plan approval, blind calibration with κ, a human decision for every record, every value checked, summary approval, AI use disclosure).
-- ◐ Full review: the methods draft (step 8) names the models; a complete AI use statement for the eight steps is not generated yet.
+- ✓ Full review: an AI use statement in step 8, built from every stored run (task, model, route, date, number of items) and the human verification.
 
 ## 1 · Protocol
 
@@ -68,10 +68,12 @@ Status: ✓ done · ◐ partly · ✗ missing
 **In Sieve**
 
 - ✓ Validation and hold-out sets, tested live in PubMed (recall, missed articles and why), and recall per database after importing the exports.
-- ✓ Translations of a MEDLINE (Ovid) strategy to Embase, Web of Science, PsycInfo and ACM, with a check list and an assistant review; counts per line.
+- ✓ Translations of a MEDLINE (Ovid) strategy to Embase, Web of Science, PsycInfo, ACM and the Cochrane Library (CENTRAL), with a check list and an assistant review; counts per line.
 - ◐ PRESS: a six-element checklist with the peer reviewer's name in the quick scan; no PRESS form in step 2 yet.
 - ◐ PRISMA-S: strategies and counts per line are kept; platform, search date and limits per database are not recorded as fields yet.
-- ✗ CENTRAL, trial registers (ClinicalTrials.gov, WHO ICTRP), Google Scholar, CINAHL and Scopus translations.
+- ✓ Cochrane Library (CENTRAL) translation of line strategies and of the concept blocks (search appendix).
+- ✓ ClinicalTrials.gov searched live from the quick scan (registrations counted separately in the PRISMA flow); query translation for the WHO ICTRP portal, which has no free API (manual export).
+- ✗ Google Scholar, CINAHL and Scopus translations; an importer for ICTRP XML exports.
 
 ## 3 · Records and deduplication
 
@@ -137,14 +139,14 @@ Status: ✓ done · ◐ partly · ✗ missing
 
 | | Systematic review | Rapid review | Scoping review | Quick scan (Sieve) |
 |---|---|---|---|---|
-| Who screens | Two people independently; titles/abstracts by one acceptable, full texts by two (MECIR C39; Handbook 4.6.4). | Pilot; two people on ~20%, single screening if κ ≥ 0.8 (rec. 8-9). | Two or more reviewers independently, titles/abstracts and full texts, after a pilot (JBI Manual 10.2.6). | You screen every record blind and the AI is the independent second reviewer; you resolve the disagreements (Hamel 2021). Faster option: blind calibration (κ), then the AI suggestion shown. |
+| Who screens | Two people independently; titles/abstracts by one acceptable, full texts by two (MECIR C39; Handbook 4.6.4). | Pilot; two people on ~20%, single screening if κ ≥ 0.8 (rec. 8-9). | Two or more reviewers independently, titles/abstracts and full texts, after a pilot (JBI Manual 10.2.6). | You screen every record blind and the AI is the independent second reviewer; you resolve the disagreements (Hamel 2021). Or two people blind with the AI as a check; or, faster, blind calibration (κ) then the AI suggestion shown. |
 
 **In Sieve**
 
 - ✓ Model runs per criterion with verified quotes; sensitivity, specificity and κ against your decisions; disagreements first; full-text exclusions require a reason.
 - ✓ Quick scan: you screen every record blind with the AI as independent second reviewer and resolve the disagreements (κ shown); or, faster, a blind calibration sample and then the AI suggestion shown.
-- ◐ Conflicts between you and the AI are resolved by you; a second human for the conflicts (Hamel 2021) is not built in yet.
-- ◐ A model can be the second reviewer, but a true two-human mode (blinded, independent, with conflict resolution) is not there yet.
+- ✓ Two people: a blind copy of the project for the second reviewer (here or on another computer, without your decisions or model runs); their decisions come back as a small file; κ between you and a consensus step that keeps both original decisions.
+- ✓ Quick scan, two-person mode: both screen blind, consensus on disagreements, then the AI flags records you both excluded that it would keep (Cochrane RR AI position: AI to flag missed studies).
 - ✗ Prioritised screening with a stopping rule such as SAFE.
 
 ## 7 · Data extraction and risk of bias
@@ -155,20 +157,25 @@ Status: ✓ done · ◐ partly · ✗ missing
 - More than one person should extract data from every report; at minimum, data needing interpretation and data critical to the results are extracted independently by two people (5.5.2). *Cochrane Handbook ch. 5: Collecting data, version 6.5, 2024* (https://www.cochrane.org/authors/handbooks-and-manuals/handbook/current/chapter-05)
 - Single extraction produces more errors than double extraction. *Single vs. double extraction: Buscemi N et al. J Clin Epidemiol 2006;59:697-703* (https://pubmed.ncbi.nlm.nih.gov/16765272/)
 - Rapid reviews: limit extraction to the most important fields (rec. 10); pilot (rec. 11); one person extracts, a second verifies critical data (rec. 12). *Cochrane rapid reviews: Garritty C et al. Updated recommendations for the Cochrane rapid review methods guidance for rapid reviews of effectiveness. BMJ 2024;384:e076335* (https://doi.org/10.1136/bmj-2023-076335)
-- Assess risk of bias of each result that matters, with RoB 2 for randomised trials (C52), by two people independently (C53, mandatory). Rapid reviews: a validated tool, one assesses and a second verifies (Garritty 2024, rec. 14-16). *MECIR: Methodological Expectations of Cochrane Intervention Reviews, version August 2023* (https://www.cochrane.org/authors/handbooks-and-manuals/mecir-manual)
+- Assess the risk of bias of each study result that contributes to an outcome in the summary of findings, with RoB 2 for randomized trials (C52, mandatory); (at least) two people independently, with a predefined way to resolve disagreements (C53, mandatory); justify each judgement (C54) and record its source, e.g. a quotation (C55). *MECIR: Methodological Expectations of Cochrane Intervention Reviews, version August 2023* (https://www.cochrane.org/authors/handbooks-and-manuals/mecir-manual)
+- Rapid reviews: validated, study-design-specific tools (rec. 14); at least for the most important outcomes (rec. 15); one person assesses and a second verifies the judgements (rec. 16). *Cochrane rapid reviews: Garritty C et al. Updated recommendations for the Cochrane rapid review methods guidance for rapid reviews of effectiveness. BMJ 2024;384:e076335* (https://doi.org/10.1136/bmj-2023-076335)
+- Five domains, judged low risk, some concerns or high risk; the overall generally follows the worst domain, and several domains with some concerns can make it high. *RoB 2: Sterne JAC et al. BMJ 2019;366:l4898* (https://doi.org/10.1136/bmj.l4898)
+- Seven domains for non-randomised studies of interventions, judged low, moderate, serious or critical (or no information); the overall is at least as severe as the worst domain. *ROBINS-I: Sterne JAC et al. BMJ 2016;355:i4919* (https://doi.org/10.1136/bmj.i4919)
 - Scoping reviews: data extraction is called charting; pilot it with at least two members of the team (10.2.7). *JBI Manual, scoping reviews: Peters MDJ et al. Chapter 10: Scoping reviews. In: Aromataris E et al. (eds). JBI Manual for Evidence Synthesis* (https://jbi-global.atlassian.net/wiki/spaces/MANUAL/pages/355862497/10.+Scoping+reviews)
 - Use a tool that fits the study type: e.g. PROBAST+AI for (AI) prediction models, RoB 2, ROBINS-I, QUADAS-2. *PROBAST+AI: Moons KGM et al. BMJ 2025;388:e082505* (https://doi.org/10.1136/bmj-2024-082505)
 
 | | Systematic review | Rapid review | Scoping review | Quick scan (Sieve) |
 |---|---|---|---|---|
 | Extraction | Two people independently for outcome data (MECIR C46); piloted form (C43). | One extracts, a second verifies critical data (rec. 12). | Data charting, piloted by at least two team members (JBI Manual 10.2.7). | AI extracts with quotes; you check every value against its quote. |
-| Risk of bias | Validated tool (RoB 2 for RCTs), two people independently (C52-C53). | Validated tool, one assesses and a second verifies (rec. 14-16). | Not normally required (JBI). | Not done: named as a limitation. |
+| Risk of bias | Validated tool (RoB 2 for RCTs), two people independently (C52-C53). | Validated, design-specific tool; one assesses, a second verifies (rec. 14-16). | Optional (PRISMA-ScR items 12 and 16). | Optional appraisal stage: the tool for the design, AI drafts with quotes, you judge every domain; or skipped and named as a limitation. |
 
 **In Sieve**
 
 - ✓ Every value with a verified quote; two runs compared field by field; the human verifies each cell (disagreements and unverified quotes first).
 - ✓ Pilot run and run checks (completeness, verified quotes, core-only rule).
-- ✗ Risk-of-bias / quality appraisal module (RoB 2, ROBINS-I, QUADAS-2, PROBAST+AI) as a form like extraction.
+- ✓ Risk of bias / quality: RoB 2, ROBINS-I, QUADAS-2, PROBAST+AI and the JBI qualitative checklist; AI drafts per domain with a quote checked word for word, a person judges every domain, the overall follows the tool's rule where it has one; traffic-light table, summary per domain, CSV.
+- ✓ Second reviewer for extraction and risk of bias in the blind copy: values compared field by field, judgements domain by domain, consensus recorded.
+- ◐ QUADAS-2 has been superseded by QUADAS-3 (2026) and ROBINS-I version 2 is a draft; both are still to be added.
 
 ## 8 · Report
 
@@ -176,17 +183,22 @@ Status: ✓ done · ◐ partly · ✗ missing
 
 - Flow diagram and the 27-item checklist. *PRISMA 2020: Page MJ et al. BMJ 2021;372:n71* (https://doi.org/10.1136/bmj.n71)
 - Search appendix with every full strategy. *PRISMA-S: Rethlefsen ML et al. Syst Rev 2021;10:39* (https://doi.org/10.1186/s13643-020-01542-z)
-- Rapid reviews: describe the restricted methods and discuss their limitations (rec. 24); GRADE for the main comparisons if time allows (rec. 21-23). *Cochrane rapid reviews: Garritty C et al. Updated recommendations for the Cochrane rapid review methods guidance for rapid reviews of effectiveness. BMJ 2024;384:e076335* (https://doi.org/10.1136/bmj-2023-076335)
+- Rapid reviews: describe the restricted methods and discuss their limitations (rec. 24); GRADE if time and resources allow, with a summary of findings table and footnotes (rec. 21), limited to the main comparison and critical outcomes (rec. 22), one person rates and a second verifies (rec. 23). *Cochrane rapid reviews: Garritty C et al. Updated recommendations for the Cochrane rapid review methods guidance for rapid reviews of effectiveness. BMJ 2024;384:e076335* (https://doi.org/10.1136/bmj-2023-076335)
+- Assess the certainty of the body of evidence for each outcome with the five GRADE considerations (C74, mandatory) and justify every judgement (C75, mandatory). *MECIR: Methodological Expectations of Cochrane Intervention Reviews, version August 2023* (https://www.cochrane.org/authors/handbooks-and-manuals/mecir-manual)
+- Randomised trials start at high certainty and non-randomised studies at low (or high with ROBINS-I, rating down for risk of bias); rate down for risk of bias, inconsistency, indirectness, imprecision and publication bias; rate up for a large effect, a dose-response gradient or plausible confounding. *Cochrane Handbook ch. 14: Completing 'Summary of findings' tables and grading the certainty of the evidence, version 6.5, 2024* (https://www.cochrane.org/authors/handbooks-and-manuals/handbook/current/chapter-14)
+- For qualitative findings: confidence from methodological limitations, coherence, adequacy of data and relevance, starting from high confidence; explain every assessment. *GRADE-CERQual: Lewin S et al. Implement Sci 2018;13(Suppl 1):2* (https://doi.org/10.1186/s13012-017-0688-3)
 - A transparent statement of AI use and its validation. *AI in evidence synthesis: Position statement on AI use in evidence synthesis across Cochrane, the Campbell Collaboration, JBI and the Collaboration for Environmental Evidence (endorsing RAISE), 2025* (https://www.ncbi.nlm.nih.gov/pmc/articles/PMC12594113/)
 
 | | Systematic review | Rapid review | Scoping review | Quick scan (Sieve) |
 |---|---|---|---|---|
-| Reporting | PRISMA 2020 + PRISMA-S; certainty of evidence (GRADE). | PRISMA; the restricted methods and their limitations (rec. 24). | PRISMA-ScR. | Labelled an evidence scan; limitations written from what was done; AI use disclosure. |
+| Reporting | PRISMA 2020 + PRISMA-S; certainty of evidence (GRADE, MECIR C74-C75). | PRISMA; GRADE if time allows (rec. 21-23); the restricted methods and their limitations (rec. 24). | PRISMA-ScR. | Labelled an evidence scan; optional GRADE / CERQual per finding; limitations written from what was done; AI use disclosure. |
 
 **In Sieve**
 
 - ✓ PRISMA 2020 counts and diagram, inclusion/exclusion per criterion, a methods draft built from what was run, a search appendix with all strategies and translations.
-- ✗ PRISMA 2020 / PRISMA-ScR / PRISMA-S checklist exports, GRADE, a complete AI use statement for the full review.
+- ✓ PRISMA 2020, PRISMA-ScR and PRISMA-S checklists, each item with what Sieve holds for this project and where (Markdown export with a page column).
+- ✓ Certainty per outcome or finding: GRADE (with the ROBINS-I start and three levels down for risk of bias, GRADE 18) or GRADE-CERQual; AI drafts, the person rates with a reason for every concern; summary-of-findings table with footnotes.
+- ✓ AI use statement for the full review, built from the stored runs.
 
 ## Quick scan
 
@@ -203,15 +215,14 @@ Status: ✓ done · ◐ partly · ✗ missing
 **In Sieve**
 
 - ✓ Plan approved as a dated protocol; PRESS checklist; blind calibration with κ; every record and every value decided or checked by you; summary approval; limitations and AI use disclosure written from what was done.
-- ✗ Risk of bias and GRADE; a second human reviewer (the next steps of the full review).
+- ✓ Optional appraisal stage (risk of bias / quality) and certainty per finding (GRADE / CERQual); a two-person screening mode and a blind copy for a second reviewer.
+- ✓ Auto mode: every AI step runs unattended and writes a manuscript draft (methods and results from what was run; introduction and discussion by the model) labelled UNVERIFIED AI DRAFT, with per section what a person has checked; no human decision, check or rating is written by the run.
 
 ## Gaps, in order of priority
 
-1. Risk-of-bias / quality appraisal (RoB 2, ROBINS-I, QUADAS-2, PROBAST+AI) as a form with evidence quotes, by two people (MECIR C52-C53).
-2. Two-human screening and extraction: independent, blinded decisions with conflict resolution (MECIR C39, C46).
-3. CENTRAL and trial registers (MECIR C24, C27); a PRESS form in step 2; PRISMA-S fields (platform, date, limits) per database.
-4. Complete AI use statement in the report for the full review (tools, versions, prompts, validation, human oversight).
-5. PRISMA 2020, PRISMA-ScR and PRISMA-S checklist exports; GRADE.
-6. Retraction check; protocol export (PRISMA-P / registration).
-7. Prioritised screening with the SAFE stopping procedure.
-8. Google Scholar, CINAHL and Scopus translations.
+1. QUADAS-3 (2026) and ROBINS-I version 2 (draft) in the risk-of-bias module; PROBAST+AI with separate development and evaluation parts.
+2. A PRESS form in step 2; PRISMA-S fields (platform, date, limits) per database; an importer for WHO ICTRP exports.
+3. Second reviewer for certainty ratings (rapid review rec. 23) and for full-text screening in the blind copy's comparison.
+4. Retraction check; protocol export (PRISMA-P / registration).
+5. Prioritised screening with the SAFE stopping procedure.
+6. Google Scholar, CINAHL and Scopus translations.

@@ -18,8 +18,9 @@ export function counts(p) {
   const ftExcl = sought.map(x => p.screening.human_ft?.[x.r.rid]).filter(d => d && isInclude(d.decision) === false);
   const reasons = {};
   ftExcl.forEach(d => (reasons[d.reason || "reason not recorded"] = (reasons[d.reason || "reason not recorded"] || 0) + 1));
+  const registers = p.records.filter(r => r.is_register).length;
   return {
-    bySource, identified: p.records.length, duplicates: p.records.length - recs.length, screened: recs.length,
+    bySource, identified: p.records.length, registers, databases: p.records.length - registers, duplicates: p.records.length - recs.length, screened: recs.length,
     taExcluded: taExcluded.length, taHuman: ta.filter(x => x.human).length, sought: sought.length, notRetrieved: notRetrieved.length,
     assessed: sought.length - notRetrieved.length, ftExcluded: ftExcl.length, reasons, included: included(p).length,
   };
@@ -77,7 +78,7 @@ export function prisma(c) {
     lines.forEach((t, i) => el("text", { x: x + 10, y: y + 20 + i * 16, style: "fill:var(--ink,#222);font:12px system-ui,sans-serif" }, t));
   };
   const arrow = (x1, y1, x2, y2) => el("line", { x1, y1, x2, y2, stroke: "#8895a3", "marker-end": "url(#arr)" });
-  box(20, 20, 330, 60, ["Records identified", `n = ${fmt(c.identified)} (${Object.keys(c.bySource).length} sources)`]);
+  box(20, 20, 330, 60, c.registers ? ["Records identified", `databases n = ${fmt(c.databases)} · registers n = ${fmt(c.registers)}`] : ["Records identified", `n = ${fmt(c.identified)} (${Object.keys(c.bySource).length} sources)`]);
   box(420, 20, 320, 60, ["Duplicates removed", `n = ${fmt(c.duplicates)}`]);
   box(20, 120, 330, 50, ["Records screened (title/abstract)", `n = ${fmt(c.screened)}`]);
   box(420, 120, 320, 50, ["Records excluded", `n = ${fmt(c.taExcluded)}`]);

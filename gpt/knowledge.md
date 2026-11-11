@@ -398,7 +398,7 @@ yes/maybe/no per title.
 
 ### Translate a database strategy
 
-Check rule-based drafts for medline, embase, wos, psycinfo, acm; map MeSH to Emtree and APA Thesaurus.
+Check rule-based drafts for medline, embase, wos, psycinfo, acm, cochrane; map MeSH to Emtree and APA Thesaurus.
 
 ```json
 {
@@ -442,7 +442,8 @@ Check rule-based drafts for medline, embase, wos, psycinfo, acm; map MeSH to Emt
        "embase",
        "wos",
        "psycinfo",
-       "acm"
+       "acm",
+       "cochrane"
       ]
      },
      "lines": {
@@ -513,3 +514,4 @@ Database rules:
 - wos = Web of Science Core Collection, Advanced Search: TS=, TI=, AB=, AK=, DT=, PY=; NEAR/n; $ (0-1 char), ? (1 char); history #1 AND #2. No subject headings.
 - psycinfo = APA PsycInfo on EBSCOhost: DE "APA Thesaurus term" (explode = tick Explode, which writes out the narrower DE terms), TI, AB, KW field codes; Nn / Wn proximity; # (0-1 char), ? (1 char); history S1 AND S2; limiters for year/language/population (PO Human, PO Animal).
 - acm = ACM Digital Library, Edit Query box: Title:(...), Abstract:(...), Keyword:(...); AND/OR/NOT in capitals; no subject headings; wildcards (* ?) are IGNORED inside quotes and not allowed at the start of a word; no search history (one string); proximity only as "word word"~n without wildcards; year via the date filter.
+- cochrane = Cochrane Library Search Manager (CENTRAL): term:ti,ab,kw and (a OR b):ti,ab,kw; MeSH as [mh "Heading"] (exploded) or [mh ^"Heading"] (not exploded); phrases in quotes but no truncation inside quotes (use NEXT: (health NEXT behavio*)); * truncation, ? one character; NEAR/n; history #1 OR #2; no language limit; dates only as Search Limits (date added to the Cochrane Library).

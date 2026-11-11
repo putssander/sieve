@@ -11,6 +11,7 @@ import { highlightHtml } from "../evidence.js";
 import { showEvidence } from "./evidence.js";
 import { calibrationSample, kappa } from "../scan.js";
 import { sourceText } from "./screening.js";
+import { compareScreening, reviewers } from "../team.js";
 
 const today = () => new Date().toISOString().slice(0, 10);
 const keep = d => d === "Include" || d === "Unclear";
@@ -23,8 +24,20 @@ const keep = d => d === "Include" || d === "Unclear";
 export const SCREEN_MODES = {
   independent: { label: "Independent: you screen blind, the AI is the second reviewer", hint: "Most rigorous: like two independent reviewers. You decide every record without seeing the AI; afterwards only the disagreements come back to you, with the AI's reasons." },
   assisted: { label: "Faster: AI suggestion shown after a blind calibration sample", hint: "You screen 20% blind to measure agreement (κ), then decide the rest with the AI suggestion visible. Quicker, but seeing the suggestion can steer you." },
+  dual: { label: "Two people: you and a colleague screen blind, the AI checks", hint: "As a systematic review asks (MECIR C39): a second person screens in a blind copy, you resolve your disagreements together, and the AI flags records you both excluded but it would keep (Cochrane RR AI position 2025)." },
 };
-export const screenMode = p => (p.scan?.screen_mode === "assisted" ? "assisted" : "independent");
+export const screenMode = p => (["assisted", "dual"].includes(p.scan?.screen_mode) ? p.scan.screen_mode : "independent");
+
+// Dual mode: records excluded in the end (after your consensus) that the AI would keep: a person looks again.
+export function aiFlags(p, recs, aiOf) {
+  return recs.filter(r => { const x = p.screening.human?.[r.rid], ai = aiOf(r.rid); return x?.decision && !keep(x.decision) && ai && keep(ai.decision) && !x.ai_checked; });
+}
+function dualState(p, recs) {
+  const name = reviewers(p).find(n => recs.some(r => p.team.reviewers[n].screening?.[r.rid]));
+  if (!name) return { name: null, waiting: true };
+  const c = compareScreening(p, name, recs.map(r => r.rid));
+  return { name, waiting: c.missingOther > 0, open: c.open.length, kappa: c.kappa };
+}
 
 export function calibrationIds(p, recs) {
   if (!p.scan.calibration) p.scan.calibration = { ids: calibrationSample(recs.map(r => r.rid), p.id), date: today() };
@@ -40,7 +53,10 @@ export function calibrationResult(p, aiOf) {
 }
 const isConflict = (p, rid, aiOf) => { const x = p.screening.human?.[rid], ai = aiOf(rid); return !!(x?.blind && ai && !x.resolved && keep(x.first || x.decision) !== keep(ai.decision)); };
 export function screeningComplete(p, recs, aiOf) {
-  return recs.length > 0 && recs.every(r => p.screening.human?.[r.rid]?.decision) && (screenMode(p) === "assisted" || !recs.some(r => isConflict(p, r.rid, aiOf)));
+  if (!recs.length || !recs.every(r => p.screening.human?.[r.rid]?.decision)) return false;
+  const mode = screenMode(p);
+  if (mode === "dual") { const d = dualState(p, recs); return !d.waiting && !d.open && !aiFlags(p, recs, aiOf).length; }
+  return mode === "assisted" || !recs.some(r => isConflict(p, r.rid, aiOf));
 }
 
 // aiOf(rid) → the AI result. onDone() after the last decision. keyOf(r) → the input fingerprint (for out-of-date checks).
@@ -70,13 +86,21 @@ export function screenCheckCard(ctx, recs, aiOf, onDone, keyOf = () => "") {
     clear(host);
     const blindTodo = recs.filter(r => calib.includes(r.rid) && !hum(r.rid));
     const conflicts = mode === "independent" && !blindTodo.length ? recs.filter(r => isConflict(p, r.rid, aiOf)) : [];
-    const todo = mode === "assisted" ? recs.filter(r => !hum(r.rid)) : conflicts;
+    const dual = mode === "dual" && !blindTodo.length ? dualState(p, recs) : null;
+    const flags = dual && !dual.waiting && !dual.open ? aiFlags(p, recs, aiOf) : [];
+    const todo = mode === "assisted" ? recs.filter(r => !hum(r.rid)) : mode === "dual" ? flags : conflicts;
+    if (dual && (dual.waiting || dual.open)) {
+      host.append(h("div", { class: "scan-check-head" }, h("strong", {}, `Your screening is done · ${recs.length} records`),
+        h("span", { class: "muted small" }, dual.waiting ? " Now the second reviewer: make a blind copy for your colleague below. Their decisions come back to this page." : ` ${dual.open} disagreements with ${dual.name}: record your consensus below.`)));
+      return;
+    }
     const cal = calibrationResult(p, aiOf);
     const head = blindTodo.length
       ? (mode === "independent" ? `Your screening · ${recs.length - blindTodo.length} of ${recs.length}` : `Your check 1 of 2 · calibration: ${calib.length - blindTodo.length} of ${calib.length}`)
-      : todo.length ? (mode === "independent" ? `Disagreements with the AI · ${todo.length} to resolve` : `Your check 2 of 2 · ${recs.length - todo.length} of ${recs.length} decided`)
+      : todo.length ? (mode === "independent" ? `Disagreements with the AI · ${todo.length} to resolve` : mode === "dual" ? `AI check · ${todo.length} records you both excluded that the AI would keep` : `Your check 2 of 2 · ${recs.length - todo.length} of ${recs.length} decided`)
       : `All ${recs.length} decisions are yours`;
     const sub = blindTodo.length ? " You do not see the AI here: your judgement stays independent. Keys: i = include, e = exclude (then 1-9 for the criterion), u = unclear."
+      : todo.length && mode === "dual" ? " Look at each one again; keep it excluded or include it. The decision stays with you (and your colleague)."
       : todo.length ? (mode === "independent" ? " You and the AI disagree on these. Read the AI's reasons, then make the final decision (Hamel et al. 2021: conflicts go to another reviewer; with a colleague, let them decide)."
         : " The AI suggestion is shown; the decision is yours. Keys: a = agree, i = include, e = exclude, u = unclear.") : "";
     host.append(h("div", { class: "scan-check-head" }, h("strong", {}, head), h("span", { class: "muted small" }, sub)));
@@ -87,6 +111,13 @@ export function screenCheckCard(ctx, recs, aiOf, onDone, keyOf = () => "") {
     if (!r) { if (decided) onDone?.(); return; }
     const blind = !!blindTodo.length;
     const resolving = !blind && mode === "independent";
+    const flagging = !blind && mode === "dual";
+    const flagDecide = decision => {
+      decided = true;
+      const prev = p.screening.human[r.rid];
+      p.screening.human[r.rid] = { ...prev, decision, ai_checked: today(), first: prev.first || prev.decision, ...(decision !== prev.decision ? { reason: "", criteria: {} } : {}) };
+      ctx.save(); draw();
+    };
     const ai = blind ? null : aiOf(r.rid);
     const mine = p.screening.human?.[r.rid];
     const quotes = (ai?.failed_criteria || []).map(f => f.evidence_quote).filter(q => q && !/^No direct quote/i.test(q));
@@ -106,7 +137,8 @@ export function screenCheckCard(ctx, recs, aiOf, onDone, keyOf = () => "") {
     host.append(h("article", { class: "scan-check-card" },
       h("div", { class: "muted small" }, `${r.rid} · ${r.journal || ""} ${r.year || ""}`),
       h("h4", {}, r.title), abstract, suggestion,
-      resolving ? row(btn([`Keep mine: ${mine.first || mine.decision}`, h("kbd", {}, "k")], keepMine, "primary"), btn([`Change to the AI's: ${ai.decision}`, h("kbd", {}, "a")], agree))
+      flagging ? row(btn(["Keep it excluded", h("kbd", {}, "k")], () => flagDecide(mine.decision), "primary"), btn(["Include", h("kbd", {}, "i")], () => flagDecide("Include")), btn(["Unclear", h("kbd", {}, "u")], () => flagDecide("Unclear"), "ghost"))
+      : resolving ? row(btn([`Keep mine: ${mine.first || mine.decision}`, h("kbd", {}, "k")], keepMine, "primary"), btn([`Change to the AI's: ${ai.decision}`, h("kbd", {}, "a")], agree))
         : row(ai && btn([`Agree: ${ai.decision}`, h("kbd", {}, "a")], agree, "primary"),
           btn(["Include", h("kbd", {}, "i")], () => decide(r, "Include", "", blind), ai ? "" : "primary"),
           btn(["Exclude", h("kbd", {}, "e")], () => { excludeRow.hidden = false; }),
@@ -116,6 +148,7 @@ export function screenCheckCard(ctx, recs, aiOf, onDone, keyOf = () => "") {
       if (!host.isConnected) { document.removeEventListener("keydown", keyHandler); return; }
       if (e.target.matches?.("input, textarea, select") || e.metaKey || e.ctrlKey || e.altKey) return;
       const k = e.key.toLowerCase();
+      if (flagging) { if (k === "k") flagDecide(mine.decision); else if (k === "i") flagDecide("Include"); else if (k === "u") flagDecide("Unclear"); else return; e.preventDefault(); return; }
       if (resolving) { if (k === "k") keepMine(); else if (k === "a") agree(); else return; e.preventDefault(); return; }
       if (k === "a" && ai) agree();
       else if (k === "i") decide(r, "Include", "", blind);

@@ -25,10 +25,17 @@ Priorities: **P1** next, **P2** soon, **P3** later. Methodological gaps come fro
   open-access texts only). About an hour with an API key. Label it an AI-assisted evidence scan, not a
   systematic review (rapid review guidance: Garritty et al. 2021, J Clin Epidemiol 130:13-22), and offer
   "continue as a scoping / systematic review" in the same project.
-- [ ] **Risk-of-bias / quality appraisal** as a form like extraction, with evidence quotes: PROBAST+AI, QUADAS-2,
-  RoB 2, ROBINS-I (methods gap 1).
-- [ ] **Two-human screening mode**: independent, blinded decisions, conflict resolution, κ between humans
-  (methods gap 2).
+- [x] **Risk-of-bias / quality appraisal** with evidence quotes: RoB 2, ROBINS-I, QUADAS-2, PROBAST+AI, JBI qualitative
+  (step 7 and the scan's Appraise stage).
+- [ ] Add QUADAS-3 (Ann Intern Med 2026, supersedes QUADAS-2) and ROBINS-I V2 (draft, Nov 2025: six domains);
+  PROBAST+AI with separate development (quality) and evaluation (risk of bias) parts.
+- [x] **Second reviewer**: blind copy (same device or file), decisions file back, κ, consensus; dual mode in the scan
+  with the AI as a check on records both excluded.
+- [x] **GRADE / GRADE-CERQual** per outcome or finding, summary-of-findings table (step 8 and the scan).
+- [x] **Auto mode**: question in, manuscript draft out, labelled UNVERIFIED AI DRAFT until the checks are done.
+- [ ] Record the appraisal, certainty and manuscript answers for the "writing" example, so auto mode runs the whole
+  example without a key (`tools/build-scan-example.mjs` needs those stages).
+- [ ] Second reviewer for certainty ratings (rapid review rec. 23); full-text screening in the team comparison.
 
 - [x] Example scans with recorded answers (fingerprinted per input; edits → out of date → new call): "writing" recorded.
 - [ ] Record more example scans (e.g. `climate`, `medication`) with `node tools/build-scan-example.mjs <id>`.
@@ -41,10 +48,10 @@ Priorities: **P1** next, **P2** soon, **P3** later. Methodological gaps come fro
 ## P2: soon
 
 - [ ] PRESS 2015 checklist for peer review of a search strategy (six elements, reviewer form + assistant prompt).
-- [ ] PRISMA-S fields per database (platform, search date, limits, record count) and a PRISMA-S checklist export.
-- [ ] Complete AI-use statement in the report: tools, versions, prompts, validation results, human oversight
-  (2025 joint statement / RAISE).
-- [ ] PRISMA 2020 checklist export; "reports not retrieved" in the flow diagram.
+- [ ] PRISMA-S fields per database (platform, search date, limits, record count). Checklist export: done.
+- [x] AI use statement in the report, built from every stored run.
+- [x] PRISMA 2020 / PRISMA-ScR / PRISMA-S checklists filled from the project (step 8).
+- [ ] An importer for WHO ICTRP XML exports; CENTRAL (Cochrane Library) and ClinicalTrials.gov: done.
 - [ ] Extraction instructions per review: "one value per field, the main result by a fixed rule; others in notes",
   and answer options instead of free text, to make runs more reproducible (seen in the 10 Nov reproducibility test:
   metrics 96% agreement, free text 68%).

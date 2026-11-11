@@ -280,7 +280,7 @@ check(/example-llm-screening\/screening/.test(await js(`return location.hash`)),
   await click("I checked the plan"); await sleep(1500);
   await playOn();
   for (let i = 0; i < 60 && !(await js(`return !!document.querySelector(".scan-check-card")`)); i++) await sleep(1000);
-  check(await js(`return /Your screening/.test(document.querySelector(".scan-check-head")?.innerText || "") && !document.querySelector(".scan-check-ai") && document.querySelectorAll(".scan-mode input").length === 2`), "example scan: you screen blind by default (AI as independent second reviewer), the faster mode is a choice");
+  check(await js(`return /Your screening/.test(document.querySelector(".scan-check-head")?.innerText || "") && !document.querySelector(".scan-check-ai") && document.querySelectorAll(".scan-mode input").length === 3`), "example scan: you screen blind by default (AI as independent second reviewer); faster and two-person modes are a choice");
   // Decide every record as the AI suggested (so the recorded extraction and summary still fit).
   const decided = await js(`const a = await import("/js/app.js"); let n = 0;
     for (let i = 0; i < 80; i++) {
@@ -307,6 +307,11 @@ check(/example-llm-screening\/screening/.test(await js(`return location.hash`)),
   const checkedPapers = await js(`let n = 0; for (let i = 0; i < 20; i++) { const b = [...document.querySelectorAll("#scan-extract button")].find(x => x.textContent.startsWith("Values checked")); if (!b) break; b.click(); n++; await new Promise(r => setTimeout(r, 100)); } return n;`);
   await sleep(2000);
   await playOn(); await sleep(1500);
+  const appraise = await js(`const t = document.getElementById("scan-appraise")?.innerText || ""; return { tool: document.querySelector("#scan-appraise select")?.value, skip: /Skip appraisal/.test(t), summaryGated: /Appraise the studies in stage 6 first/.test(document.getElementById("scan-summary")?.innerText || "") }`);
+  console.log("   appraise stage:", JSON.stringify(appraise));
+  check(appraise.tool && appraise.skip && appraise.summaryGated, "example scan: play stops at the appraisal (tool suggested from the question); the summary waits for it");
+  await click("Skip appraisal for this scan"); await sleep(1500);
+  await playOn(); await sleep(1500);
   const sum = await js(`return { draft: /approve it/.test(document.getElementById("scan-summary")?.innerText || ""), answer: !!document.querySelector(".scan-answer") }`);
   check(checkedPapers === 7 && sum.answer && sum.draft, `example scan: you check the values of all 7 papers; the recorded summary appears as a draft for your approval (${checkedPapers} checked)`);
   await click("I checked the summary"); await sleep(2000);
@@ -314,6 +319,18 @@ check(/example-llm-screening\/screening/.test(await js(`return location.hash`)),
     limits: document.querySelector(".scan-limits")?.innerText.includes("screened every record independently of the AI") }`);
   console.log("   finished scan:", JSON.stringify(fin));
   check(fin.approved && fin.disclosure >= 4 && fin.routes === 3 && /systematic review/.test(fin.rec || "") && fin.limits, "example scan: approved summary, AI use disclosure, limitations and go-deeper advice per route");
+  // Certainty per finding: rate the first finding yourself → summary-of-findings table with the level.
+  const cert = await js(`const card = document.querySelector(".cert-card"); if (!card) return { cards: 0 };
+    const n = document.querySelectorAll(".cert-card").length;
+    card.querySelector("details").open = true;
+    const sels = [...card.querySelectorAll("select")];
+    for (const s of sels) { const opt = [...s.options].find(o => /none_or_very_minor|not_serious|undetected/.test(o.value)) || [...s.options].find(o => o.value === "moderate"); if (opt) { s.value = opt.value; s.dispatchEvent(new Event("change", { bubbles: true })); } }
+    const fin = sels[sels.length - 1]; fin.value = "moderate"; fin.dispatchEvent(new Event("change", { bubbles: true }));
+    [...card.querySelectorAll("button")].find(b => /I checked this rating/.test(b.textContent)).click();
+    await new Promise(r => setTimeout(r, 1500));
+    return { cards: n, sof: document.querySelectorAll("table.sof tbody tr").length, level: document.querySelector("table.sof .cert-level")?.innerText };`);
+  console.log("   certainty:", JSON.stringify(cert));
+  check(cert.cards > 0 && cert.sof === cert.cards && /Moderate/.test(cert.level || ""), "example scan: certainty rated per finding by you, summary-of-findings table");
   // Recorded quotes are found word for word in the source.
   const q = await js(`const s = await import("/js/store.js"); const u = await import("/js/util.js"); const sc = await import("/js/views/screening.js"); const a = await import("/js/app.js");
     const p = a.ctx.project; const bad = []; let n = 0;
@@ -328,6 +345,43 @@ check(/example-llm-screening\/screening/.test(await js(`return location.hash`)),
   const pid = await js(`return location.hash.split("/")[2]`);
   await send("Page.navigate", { url: `${BASE}/#/p/${pid}/screening` }); await sleep(2000);
   check(await js(`const b = document.querySelector(".method-box"); return !!b && /Systematic review/.test(b.innerText) && /MECIR C39/.test(b.innerText) && b.querySelectorAll("table.compare th").length >= 4`), "steps: Official method box with the rule, its source and the route comparison");
+  // Risk of bias in step 7: judge one study domain by domain → traffic-light table and summary bars.
+  await send("Page.navigate", { url: `${BASE}/#/p/${pid}/extraction` }); await sleep(3000);
+  const rob = await js(`const card = [...document.querySelectorAll(".scan-check-card")].find(c => c.querySelector(".rob-domain")); if (!card) return { card: false };
+    for (const g of card.querySelectorAll(".rob-domain:not(.overall) .rob-choices")) g.querySelector("button").click();
+    const ov = card.querySelector(".rob-domain.overall .rob-choices button"); ov.click();
+    [...card.querySelectorAll("button")].find(b => /Save judgements/.test(b.textContent)).click();
+    await new Promise(r => setTimeout(r, 1000));
+    return { card: true, cells: document.querySelectorAll(".rob-table .rob-cell").length, bars: document.querySelectorAll(".rob-bar-row").length, head: document.querySelector(".scan-check-head")?.innerText };`);
+  console.log("   risk of bias:", JSON.stringify(rob));
+  check(rob.card && rob.cells >= 5 && rob.bars >= 4 && /1 of [0-9]+ studies judged/.test(rob.head || ""), "step 7: risk of bias judged per domain by you; traffic-light table (symbol + label) and summary per domain");
+  // Step 8: reporting checklist filled from the project, AI use statement from the stored runs.
+  await send("Page.navigate", { url: `${BASE}/#/p/${pid}/report` }); await sleep(3000);
+  const rep = await js(`const cards = [...document.querySelectorAll(".card")]; const cl = cards.find(c => /Reporting checklists/.test(c.querySelector("h3")?.textContent || ""));
+    const ai = cards.find(c => /AI use statement/.test(c.querySelector("h3")?.textContent || ""));
+    return { rows: cl?.querySelectorAll("tbody tr").length, inSieve: (cl?.innerText.match(/([0-9]+) items in Sieve/) || [])[1], ai: ai?.querySelectorAll("li").length, sof: !!document.querySelector("table.sof") }`);
+  console.log("   report:", JSON.stringify(rep));
+  check(rep.rows === 42 && Number(rep.inSieve) >= 6 && rep.ai >= 3 && rep.sof, "step 8: PRISMA 2020 checklist (42 rows) filled from the project, AI use statement, summary of findings");
+  // Second reviewer: a blind copy on this device, their decisions back, κ and a consensus step.
+  await send("Page.navigate", { url: `${BASE}/#/p/${pid}/screening` }); await sleep(2500);
+  await js(`const i = [...document.querySelectorAll("input")].find(x => x.getAttribute("aria-label") === "Second reviewer"); i.value = "Reviewer B"; i.dispatchEvent(new Event("input")); return 1`);
+  await click("Open a blind copy here"); await sleep(3000);
+  const copy = await js(`const a = await import("/js/app.js"); const p = a.ctx.project;
+    return { id: p.id, banner: !!document.querySelector(".team-banner"), runs: Object.keys(p.screening.runs).length, human: Object.keys(p.screening.human).length, records: p.records.length };`);
+  console.log("   blind copy:", JSON.stringify(copy));
+  check(copy.banner && copy.id !== pid && copy.runs === 0 && copy.human === 0 && copy.records > 0, "second reviewer: blind copy without your decisions or AI runs, with a banner");
+  await js(`const a = await import("/js/app.js"); const p = a.ctx.project; let i = 0;
+    for (const r of p.records.filter(r => !r.duplicate_of)) p.screening.human[r.rid] = { decision: i++ % 4 === 0 ? "Exclude" : "Include", by: "Reviewer B" };
+    await a.ctx.save(true); a.ctx.rerender(); return 1`);
+  await sleep(1500);
+  await click("Send my decisions"); await sleep(1500);
+  await js(`const s = await import("/js/store.js"); await s.deleteProject(location.hash.split("/")[2]); return 1`);
+  await send("Page.navigate", { url: `${BASE}/#/p/${pid}/screening` }); await sleep(3000);
+  const team = await js(`const t = [...document.querySelectorAll(".team-compare")].map(x => x.innerText).join(" "); return { text: t.slice(0, 200), kappa: /κ = /.test(t), open: (t.match(/([0-9]+) open/) || [])[1] }`);
+  console.log("   second reviewer back:", JSON.stringify(team));
+  await js(`[...document.querySelectorAll(".team-compare button")].find(b => b.textContent.trim() === "Include").click(); return 1`); await sleep(1500);
+  const team2 = await js(`const t = [...document.querySelectorAll(".team-compare")].map(x => x.innerText).join(" "); return (t.match(/([0-9]+) open/) || [])[1] || (/all resolved/.test(t) ? "0" : "?")`);
+  check(team.kappa && Number(team.open) > 0 && Number(team2) === Number(team.open) - 1, `second reviewer: decisions back, κ between you two, consensus recorded (${team.open} → ${team2} open)`);
   // Edit one criterion: your decisions and the AI suggestions are marked out of date.
   await send("Page.navigate", { url: `${BASE}/#/p/${pid}/scan` }); await sleep(3000);
   await js(`const a = await import("/js/app.js"); a.ctx.project.criteria[1].description += " (including online groups)"; await a.ctx.save(true); a.ctx.rerender(); return 1`);
@@ -337,6 +391,40 @@ check(/example-llm-screening\/screening/.test(await js(`return location.hash`)),
   check(edited.yours === "32", "example scan: editing a criterion marks your 32 decisions as made under earlier criteria");
   check(errors.length === before, `example scan: no page errors${errors.length > before ? ": " + errors.slice(before).join(" / ") : ""}`);
   await js(`const s = await import("/js/store.js"); await s.deleteProject(location.hash.split("/")[2]); return true`);
+}
+
+// ---------------------------------------------------------------- auto mode: question in, manuscript draft out (mocked model)
+{
+  const before = errors.length;
+  await send("Page.navigate", { url: `${BASE}/#/` }); await sleep(1500);
+  await click("See an example scan"); await sleep(800);
+  await js(`document.querySelector(".scan-example-pick")?.click(); return 1`);
+  for (let i = 0; i < 20 && !/\/scan$/.test(await js(`return location.hash`)); i++) await sleep(300);
+  await sleep(1500);
+  await js(`const st = await import("/js/store.js"); const s = st.getSettings(); const c = s.backends.find(b => b.kind === "anthropic"); c.apiKey = "test-key"; c.model = "mock-model"; c.modelChosen = true; s.activeBackend = c.id; st.setSettings(s);
+    const gen = x => x.enum ? x.enum[0] : x.type === "object" ? Object.fromEntries(Object.entries(x.properties || {}).map(([k, v]) => [k, gen(v)])) : x.type === "array" ? [gen(x.items)] : x.type === "boolean" ? true : (x.type === "integer" || x.type === "number") ? 0 : "Mock text.";
+    window.__calls = []; const of = window.fetch;
+    window.fetch = (u, o) => { if (!String(u).includes("api.anthropic.com/v1/messages")) return of(u, o);
+      const body = JSON.parse(o.body); window.__calls.push(body.messages[0].content.slice(0, 60));
+      return Promise.resolve(new Response(JSON.stringify({ model: "mock-model", stop_reason: "end_turn", content: [{ type: "text", text: JSON.stringify(gen(body.output_config.format.schema)) }] }))); };
+    const a = await import("/js/app.js"); a.ctx.rerender(); return 1`);
+  await sleep(2000);
+  const card = await js(`const d = document.querySelector(".auto-card"); if (d) d.open = true; return !!d && /question in, manuscript draft out/i.test(d.innerText)`);
+  check(card, "auto mode: card on the scan page");
+  await js(`[...document.querySelectorAll(".auto-card button")].find(b => /Run auto mode/.test(b.textContent)).click(); return 1`);
+  for (let i = 0; i < 240 && !(await js(`return /Done: the manuscript draft/.test(document.querySelector(".auto-log")?.innerText || "") || !!document.getElementById("auto-manuscript")`)); i++) await sleep(1000);
+  await sleep(2500);
+  const auto = await js(`const a = await import("/js/app.js"); const p = a.ctx.project; const m = document.getElementById("auto-manuscript");
+    return { calls: window.__calls.length, human: Object.keys(p.screening.human).length, checked: Object.keys(p.scan.extract_checked || {}).length, robHuman: Object.keys(p.rob?.human || {}).length,
+      robAI: Object.keys(p.rob?.runs?.auto?.results || {}).length, exampleScreens: Object.keys(p.screening.runs.example?.results || {}).length, summary: !!p.scan.summary && !p.scan.summary.approved,
+      badge: m?.querySelector(".badge")?.innerText, unverified: /UNVERIFIED AI DRAFT/.test(m?.innerText || ""), methods: /2\. Methods/.test(m?.innerText || ""), refs: m?.querySelectorAll(".manuscript-preview ol li").length,
+      log: document.querySelector(".auto-log")?.innerText.split(String.fromCharCode(10)).slice(0, 4).join(" | ") }`);
+  console.log("   auto mode:", JSON.stringify(auto));
+  check(auto.human === 0 && auto.checked === 0 && auto.robHuman === 0, "auto mode: no human decision, check or judgement is written by the AI run");
+  check(auto.exampleScreens >= 30 && auto.robAI >= 1 && auto.summary && auto.calls >= 3, "auto mode: recorded example answers reused, the model called only for the steps without one (appraisal, certainty, manuscript)");
+  check(auto.unverified && /0 of 9 steps checked/.test(auto.badge || "") && auto.methods, "auto mode: manuscript draft labelled UNVERIFIED AI DRAFT with the verification list; methods written from what was run");
+  check(errors.length === before, `auto mode: no page errors${errors.length > before ? ": " + errors.slice(before).join(" / ") : ""}`);
+  await js(`const st = await import("/js/store.js"); const s = st.getSettings(); s.activeBackend = "chat"; s.backends.find(b => b.kind === "anthropic").apiKey = ""; st.setSettings(s); await st.deleteProject(location.hash.split("/")[2]); return 1`);
 }
 
 // ---------------------------------------------------------------- public site: no contact with this device unless asked

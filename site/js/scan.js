@@ -6,6 +6,7 @@ import { parseTerm, blockTerms } from "./query.js";
 import { REVIEW_TYPES, FRAMEWORKS } from "./review-plan.js";
 import { screeningPrompt, sourceBlock, extractionPrompt } from "./prompts.js";
 import { SOURCES as SRC } from "./methods.js";
+import { hashKey } from "./hash.js";
 
 const str = d => (d ? { type: "string", description: d } : { type: "string" });
 const obj = properties => ({ type: "object", properties, required: Object.keys(properties), additionalProperties: false });
@@ -19,6 +20,7 @@ export const SCAN_STAGES = [
   { id: "screen", label: "Screen", what: "Every title and abstract judged against each criterion, with quotes." },
   { id: "texts", label: "Full texts", what: "Open-access full texts collected for the selected papers." },
   { id: "extract", label: "Extract", what: "The data fields filled per paper, each value with a quote." },
+  { id: "appraise", label: "Appraise", what: "Risk of bias or quality per study with a validated tool; you judge every domain." },
   { id: "summary", label: "Summary", what: "An answer with citations, the selection flow and the limitations." },
 ];
 
@@ -38,6 +40,9 @@ export const SCAN_EXAMPLES = {
     ["Not found", "subscription papers keep their abstract; add the PDFs later in step 5"]],
   extract: [["Field", "Sensitivity / recall"], ["Value", "0.91 (range 0.85–0.97 across reviews)"],
     ["Evidence", "❝ quote checked word for word against the full text"]],
+  appraise: [["Tool", "RoB 2 for randomised trials · ROBINS-I · QUADAS-2 · PROBAST+AI · JBI checklist for qualitative studies"],
+    ["Domain", "D3 Missing outcome data · AI: some concerns · ❝ “12 of 60 participants were lost to follow-up” ❞"],
+    ["You", "judge every domain; the overall follows the tool's rule; a colleague assesses independently or verifies"]],
   summary: [["Answer", "Recall is high in most studies, specificity varies widely [14][24]"],
     ["Flow", "records identified → screened → selected → with full text → extracted"],
     ["Limits", "open databases only · one AI screener · open-access texts only"]],
@@ -195,7 +200,7 @@ Return JSON {"answer", "findings": [{"statement", "paper_ids"}], "agreement", "g
 export function scanLimits(project, facts) {
   const out = [];
   const s = project.scan?.search, press = project.scan?.press;
-  out.push(s ? `Searched PubMed and Europe PMC (preprints and PubMed Central) on ${s.date}; subscription databases such as Embase, CENTRAL or Web of Science and grey literature were not searched (rec. 5: at least two bibliographic databases; rec. 7).` : "Searched open databases only.");
+  out.push(s ? `Searched PubMed and Europe PMC (preprints and PubMed Central)${s.registers ? " and ClinicalTrials.gov" : ""} on ${s.date}; subscription databases such as Embase, CENTRAL or Web of Science${s.registers ? ", the WHO ICTRP" : ", trial registers"} and grey literature were not searched (rec. 5: at least two bibliographic databases; rec. 7).` : "Searched open databases only.");
   if (s?.pubmed && s.pubmed.count > s.pubmed.fetched) out.push(`Only the ${s.pubmed.fetched} most relevant of ${s.pubmed.count} PubMed records were screened (PubMed relevance ranking).`);
   if (s?.europepmc && s.europepmc.count > s.europepmc.fetched) out.push(`Only the ${s.europepmc.fetched} most relevant of ${s.europepmc.count} Europe PMC records were screened.`);
   const pressN = Object.values(press?.items || {}).filter(Boolean).length;
@@ -203,14 +208,20 @@ export function scanLimits(project, facts) {
     : pressN ? `Search strategy checked by the author on ${pressN} of 6 PRESS elements; not peer reviewed by an information specialist (rec. 4, 6).`
     : "Search strategy not peer reviewed (PRESS, rec. 6).");
   const c = facts.calibration;
-  if (facts.humanChecked && facts.humanChecked >= facts.screened && facts.screenMode === "independent") {
+  if (facts.humanChecked && facts.humanChecked >= facts.screened && facts.screenMode === "dual" && facts.second?.screening) {
+    out.push(`Titles and abstracts: two people screened every record independently (κ = ${facts.second.kappa === null ? "–" : facts.second.kappa.toFixed(2)}) and resolved ${facts.second.conflicts} disagreements by consensus; the AI checked the records both excluded${facts.second.flagged ? ` and flagged ${facts.second.flagged} for a second look` : ""} (MECIR C39).`);
+  } else if (facts.humanChecked && facts.humanChecked >= facts.screened && facts.screenMode === "independent") {
     out.push(`Titles and abstracts: one person screened every record independently of the AI, the AI acted as second reviewer${c?.n ? ` (agreement κ = ${c.kappa.toFixed(2)} on ${c.n} records)` : ""}, and the person resolved the ${c?.conflicts || 0} disagreements; another reviewer for the conflicts, as Hamel et al. (2021) advise, was not involved.`);
   } else if (facts.humanChecked && facts.humanChecked >= facts.screened) {
     out.push(`Titles and abstracts: an AI model suggested a decision for every record and one person made every final decision${c?.n ? `; on a calibration sample of ${c.n} records screened blind, agreement between the person and the AI was κ = ${c.kappa.toFixed(2)}${c.kappa >= 0.8 ? "" : " (below the 0.8 the guidance uses before continuing with single screening, rec. 9)"}` : ""}. Single human screening misses more studies than two independent reviewers.`);
   } else out.push(facts.humanChecked ? `Titles and abstracts were screened by one AI model; ${facts.humanChecked} of ${facts.screened} decisions were checked by a person.` : "Titles and abstracts were screened by one AI model, without a human check (single-reviewer screening misses studies).");
   if (facts.selected) out.push(`Full texts: ${facts.withText} of ${facts.selected} selected papers had an open-access text; the others were extracted from the abstract only.`);
-  if (facts.selected) out.push(facts.extractChecked >= facts.selected ? `Data were extracted by an AI model and every value was checked against the source by one person (rec. 12).` : `Extracted values: ${facts.extractChecked || 0} of ${facts.selected} papers checked by a person.`);
-  out.push("No risk-of-bias or quality appraisal (rec. 14–16) and no certainty-of-evidence (GRADE) rating (rec. 21–23).");
+  if (facts.selected) out.push(facts.extractChecked >= facts.selected
+    ? `Data were extracted by an AI model and every value was checked against the source by one person${facts.second?.extraction ? `; a second person extracted independently (${facts.second.extraction.same} of ${facts.second.extraction.compared} values the same, differences resolved by consensus)` : " (rec. 12: a second person should verify critical data)"}.`
+    : `Extracted values: ${facts.extractChecked || 0} of ${facts.selected} papers checked by a person.`);
+  if (facts.rob?.done) out.push(`Risk of bias / quality: ${facts.rob.tools} for ${facts.selected} studies, every domain judged by one person${facts.rob.second ? ", and independently by a second person with differences resolved by consensus" : " (rec. 16: a second person should verify)"}.`);
+  else out.push("No risk-of-bias or quality appraisal (rec. 14–16).");
+  out.push(facts.certainty ? `Certainty of the evidence rated per finding with ${facts.certainty} by the author.` : "No certainty-of-evidence rating (GRADE / GRADE-CERQual; rec. 21–23).");
   return out;
 }
 
@@ -237,8 +248,10 @@ export function kappa(pairs) {
 export function aiUseDisclosure(info) {
   const out = [];
   if (info.plan) out.push(`Plan (criteria, search blocks, data fields): drafted by ${info.plan.model || "an AI model"}; ${info.plan.approved ? `checked and approved by the author on ${info.plan.approved}` : "not yet approved by the author"}.`);
-  if (info.screen) out.push(`Title/abstract screening (${info.screen.mode === "assisted" ? "AI suggestion shown to the author after a blind calibration sample" : "the author screened blind, the AI as independent second reviewer"}): ${info.screen.models.join(", ") || "an AI model"} for ${info.screen.n} records; ${info.screen.checked} final decisions made by the author${info.screen.changed ? `, of which ${info.screen.changed} differ from the AI suggestion` : ""}${info.screen.calibration?.n ? `; blind calibration on ${info.screen.calibration.n} records, κ = ${info.screen.calibration.kappa.toFixed(2)}, ${info.screen.calibration.missed} records the author kept were excluded by the AI` : ""}.`);
+  if (info.screen) out.push(`Title/abstract screening (${info.screen.mode === "assisted" ? "AI suggestion shown to the author after a blind calibration sample" : info.screen.mode === "dual" ? "two people screened blind; the AI checked records both excluded" : "the author screened blind, the AI as independent second reviewer"}): ${info.screen.models.join(", ") || "an AI model"} for ${info.screen.n} records; ${info.screen.checked} final decisions made by the author${info.screen.changed ? `, of which ${info.screen.changed} differ from the AI suggestion` : ""}${info.screen.calibration?.n ? `; blind calibration on ${info.screen.calibration.n} records, κ = ${info.screen.calibration.kappa.toFixed(2)}, ${info.screen.calibration.missed} records the author kept were excluded by the AI` : ""}.`);
   if (info.extract) out.push(`Data extraction: values with quotes by ${info.extract.models.join(", ") || "an AI model"} for ${info.extract.n} papers; ${info.extract.checked} papers checked against the source by the author${info.extract.changed ? `, ${info.extract.changed} values corrected` : ""}.`);
+  if (info.rob) out.push(`Risk of bias / quality: domain judgements with quotes drafted by ${info.rob.models.join(", ") || "an AI model"} for ${info.rob.n} studies; every domain judged by the author${info.rob.changed ? `, ${info.rob.changed} domain judgements differ from the AI draft` : ""}.`);
+  if (info.certainty) out.push(`Certainty of the evidence (${info.certainty.approach}): drafted by ${info.certainty.model || "an AI model"}; every rating set and explained by the author.`);
   if (info.summary) out.push(`Summary: drafted by ${info.summary.model || "an AI model"} from the checked data; ${info.summary.approved ? `checked against the cited papers and approved by the author on ${info.summary.approved}` : "not yet checked by the author (draft)"}.`);
   out.push("Every prompt is built by fixed code from this project and can be downloaded; the exact model versions are listed above.");
   return out;
@@ -269,17 +282,11 @@ export function summaryMarkdown(project, facts, flow) {
 // Every AI answer is stored with a fingerprint of the exact prompt input. An example scan ships the answers
 // recorded for its inputs; as long as the inputs are unchanged the answer is reused without a call. Edit the
 // question, a criterion, a field or the search terms and the fingerprint changes: only those items need a call.
-export function hashKey(str) {   // cyrb53: fast, synchronous, identical in the browser and node
-  let h1 = 0xdeadbeef, h2 = 0x41c6ce57;
-  for (let i = 0; i < str.length; i++) { const ch = str.charCodeAt(i); h1 = Math.imul(h1 ^ ch, 2654435761); h2 = Math.imul(h2 ^ ch, 1597334677); }
-  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
-  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
-  return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36);
-}
+export { hashKey };
 
 export const scanKeys = {
   plan: p => hashKey(`plan\n${scanPlanPrompt(p)}`),
-  search: (pq, eq, caps) => hashKey(`search\n${pq}\n${eq}\n${caps.pubmed}\n${caps.europepmc}`),
+  search: (pq, eq, caps) => hashKey(`search\n${pq}\n${eq}\n${caps.pubmed}\n${caps.europepmc}${caps.registers ? `\nregisters ${caps.registers}` : ""}`),
   screen: (p, r) => hashKey(`screen\n${screeningPrompt(p, [{ source: sourceBlock(r) }])}`),
   extract: (p, r, text, fields) => hashKey(`extract\n${extractionPrompt(p, [{ source: sourceBlock(r, text || "", 30000) }], fields)}`),
   summary: (p, papers) => hashKey(`summary\n${scanSummaryPrompt(p, papers)}`),
@@ -302,38 +309,41 @@ export function goDeeperAdvice(project, facts) {
   else reasons.push("For background and orientation the scan can be enough, as long as you report it as a scan with its limitations.");
   if (sel < 3) reasons.push(`Only ${sel} papers were selected: a broader search (more databases, more records) comes first before any conclusion.`);
   if (sel && withText < sel) reasons.push(`${sel - withText} of ${sel} selected papers were read from the abstract only.`);
-  if (facts.calibration && facts.calibration.kappa < 0.8) reasons.push(`Your agreement with the AI was κ = ${facts.calibration.kappa.toFixed(2)} (< 0.8): a second human screener is advised.`);
+  if (facts.screenMode !== "dual" && facts.calibration && facts.calibration.kappa < 0.8) reasons.push(`Your agreement with the AI was κ = ${facts.calibration.kappa.toFixed(2)} (< 0.8): a second human screener is advised.`);
   const s = p.scan?.search;
   if (s && (s.pubmed?.count > s.pubmed?.fetched)) reasons.push(`The search found ${s.pubmed.count} PubMed records of which only ${s.pubmed.fetched} were screened.`);
 
   const pressOk = !!press.reviewer;
+  const sec = { screening: !!facts.second?.screening, extraction: !!facts.second?.extraction };
   const step = id => `#/p/${p.id}/${id}`;
   const item = (text, done, src, href) => ({ text, done: !!done, src, href });
   const routes = [
     { id: "systematic", label: "Systematic review", items: [
       item("Register the protocol (e.g. PROSPERO, OSF) before searching further", false, SRC.prismaP, step("protocol")),
-      item("Search CENTRAL, MEDLINE and Embase, and trial registers where relevant (MECIR C24, C27)", has(/embase/) && has(/central|cochrane/), SRC.mecir, step("search")),
+      item("Search CENTRAL, MEDLINE and Embase, and trial registers where relevant (MECIR C24, C27)", has(/embase/) && has(/central|cochrane/) && has(/clinicaltrials|ictrp|register/), SRC.mecir, step("search")),
       item("Peer review of the search by an information specialist (PRESS)", pressOk, SRC.press, step("search")),
-      item("Two people decide on eligibility independently; full texts always by two (MECIR C39)", false, SRC.mecir, step("screening")),
+      item("Two people decide on eligibility independently; full texts always by two (MECIR C39)", sec.screening, SRC.mecir, step("screening")),
       item("Full texts of all potentially eligible reports, also behind paywalls", sel && withText >= sel, SRC.prisma, step("fulltext")),
-      item("Outcome data extracted by two people independently (MECIR C46)", false, SRC.mecir, step("extraction")),
-      item("Risk of bias with a validated tool, by two people (MECIR C52-C53)", false, SRC.mecir, step("extraction")),
-      item("PRISMA 2020 and PRISMA-S reporting; certainty of evidence (GRADE)", false, SRC.prisma, step("report")),
+      item("Outcome data extracted by two people independently (MECIR C46)", sec.extraction, SRC.mecir, step("extraction")),
+      item("Risk of bias with a validated tool, by two people (MECIR C52-C53)", facts.rob?.done && facts.rob.second, SRC.mecir, step("extraction")),
+      item("Certainty of the evidence per outcome (GRADE; Cochrane Handbook ch. 14)", !!facts.certainty, SRC.handbook, step("report")),
+      item("PRISMA 2020 and PRISMA-S reporting (checklists in step 8)", false, SRC.prisma, step("report")),
     ] },
     { id: "rapid", label: "Rapid review", items: [
       item("A protocol, registered where possible (rec. 2)", !!p.scan?.plan?.approved, SRC.rr2024, step("protocol")),
       item("At least two bibliographic databases, e.g. MEDLINE + Embase or CENTRAL (rec. 5)", has(/embase|central|cochrane|web of science|wos|psycinfo|cinahl/), SRC.rr2024, step("search")),
       item("PRESS peer review of the primary search (rec. 6)", pressOk, SRC.rr2024, step("search")),
-      item("Two people screen ~20% independently; single screening if κ ≥ 0.8 (rec. 8-9)", false, SRC.rr2024, step("screening")),
-      item("A second person verifies critical extracted data (rec. 12)", false, SRC.rr2024, step("extraction")),
-      item("Risk of bias with a validated tool, verified by a second person (rec. 14-16)", false, SRC.rr2024, step("extraction")),
+      item("Two people screen ~20% independently; single screening if κ ≥ 0.8 (rec. 8-9)", sec.screening, SRC.rr2024, step("screening")),
+      item("A second person verifies critical extracted data (rec. 12)", sec.extraction, SRC.rr2024, step("extraction")),
+      item("Risk of bias with a validated tool, verified by a second person (rec. 14-16)", facts.rob?.done && facts.rob.second, SRC.rr2024, step("extraction")),
+      item("Certainty of the evidence for the main outcomes (GRADE, rec. 21-23)", !!facts.certainty, SRC.rr2024, step("report")),
       item("Restricted methods and their limitations reported (rec. 24)", true, SRC.rr2024, step("report")),
     ] },
     { id: "scoping", label: "Scoping review", items: [
       item("An a priori protocol with population, concept and context", !!p.scan?.plan?.approved, SRC.jbiScoping, step("protocol")),
       item("A search broad enough for the scope, with an information specialist", pressOk, SRC.jbiScoping, step("search")),
-      item("Selection by two or more reviewers independently, after a pilot (JBI Manual 10.2.6)", false, SRC.jbiManual, step("screening")),
-      item("Charting piloted by at least two team members (JBI Manual 10.2.7)", false, SRC.jbiManual, step("extraction")),
+      item("Selection by two or more reviewers independently, after a pilot (JBI Manual 10.2.6)", sec.screening, SRC.jbiManual, step("screening")),
+      item("Charting piloted by at least two team members (JBI Manual 10.2.7)", sec.extraction, SRC.jbiManual, step("extraction")),
       item("Report with PRISMA-ScR", false, SRC.prismaScR, step("report")),
     ] },
   ];

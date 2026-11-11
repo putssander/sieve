@@ -12,6 +12,7 @@ import { card, btn, help, row, table, modal, badge, select, textarea, runPanel, 
 import { DECISIONS, SYSTEM_SCREEN, screeningPrompt, screeningSchema, screeningBatchSchema, sourceBlock } from "../prompts.js";
 import { getText } from "../store.js";
 import { active } from "./records.js";
+import { secondReviewerCard } from "./team.js";
 
 export const isInclude = d => (d === "Include" ? true : d && d.startsWith("Exclude") ? false : null);
 const dclass = d => (d === "Include" ? "d-Include" : d === DECISIONS[2] ? "d-snowball" : d === "Exclude" ? "d-Exclude" : "d-Unclear");
@@ -121,6 +122,9 @@ export async function render(m, ctx) {
     tableHost));
 
   if (stage === "ta") { const flowCard = criteriaFlowCard(p, recs); if (flowCard) m.append(flowCard); }
+  const second = secondReviewerCard(ctx, { screening: stage === "ta" ? recs.map(r => r.rid) : [], screening_ft: stage === "ft" ? recs.map(r => r.rid) : [], page: "screening" },
+    { title: "Second reviewer", intro: "Two people decide on eligibility independently (MECIR C39; JBI Manual 10.2.6; rapid reviews: at least a 20% sample, rec. 9). Make a blind copy for your colleague: the same records and criteria, without your decisions or model runs. Their decisions come back here with κ and a consensus step." });
+  if (second) m.append(second);
   m.append(metricsCard(p, recs, runs, layer));
 }
 

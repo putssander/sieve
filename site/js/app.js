@@ -20,6 +20,7 @@ import * as methods from "./views/methods.js";
 import { stageIcon } from "./icons.js";
 import { setRoute } from "./disclosure.js";
 import { sieveLogo } from "./brand.js";
+import { blindCopyBanner } from "./views/team.js";
 
 // The quick scan sits beside the eight steps and writes into the same project fields.
 export const SCAN = { id: "scan", n: 0, label: "Quick scan", sub: "question → cited answer", view: scan };
@@ -139,6 +140,7 @@ async function route() {
         h("a", { class: "btn ghost sm", href: `#/methods/${step.id}`, title: "accepted method for this step, with sources, and what Sieve does" }, "Method"), pageHelpButton(ctx, step.id)),
         h("div", { class: "kicker" }, step === SCAN ? "Evidence scan · AI-assisted" : `Step ${step.n} of ${STEPS.length}`), h("h1", { class: "stage-heading" }, stageIcon(step.id), step.label)));
       setRoute(current.protocol.review_type);
+      if (step !== SCAN) { const banner = blindCopyBanner(ctx); if (banner) m.append(banner); }
       await step.view.render(m, ctx);
       const next = step === SCAN ? null : STEPS[STEPS.indexOf(step) + 1];
       if (next) m.append(h("div", { class: "next" }, h("a", { class: "btn", href: `#/p/${current.id}/${next.id}` }, `Next: ${next.label} →`)));

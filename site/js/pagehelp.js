@@ -27,7 +27,7 @@ export const PAGES = {
     }),
   },
   search: {
-    title: "Search", purpose: "Build and test the search string. PubMed concept blocks are tested live (record count, recall on validation and hold-out articles); line-numbered database strategies (e.g. MEDLINE via Ovid) are translated to Embase, Web of Science, PsycInfo and ACM.",
+    title: "Search", purpose: "Build and test the search string. PubMed concept blocks are tested live (record count, recall on validation and hold-out articles); line-numbered database strategies (e.g. MEDLINE via Ovid) are translated to Embase, Web of Science, PsycInfo, ACM and the Cochrane Library (CENTRAL).",
     schema: obj({
       answer: ANSWER,
       blocks: arr(obj({ label: str(), role: { type: "string", enum: ["include", "exclude"] }, terms: arr(str("one PubMed term, e.g. \"machine learning\"[tiab]")) })),

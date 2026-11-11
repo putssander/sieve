@@ -232,7 +232,7 @@ ${docText.slice(0, 30000)}`;
 
 // ------------------------------------------------------------------ load a document
 // Reads a ticket / protocol / PICO form / proposal and returns everything Sieve can fill in.
-const DBS = ["medline", "embase", "wos", "psycinfo", "acm"];
+const DBS = ["medline", "embase", "wos", "psycinfo", "acm", "cochrane"];   // = Object.keys(TARGETS) in strategy.js
 export const documentImportSchema = obj({
   question: str("the review question(s) as written; empty if absent"),
   elements: arr(obj({ label: { type: "string", enum: ["Population", "Intervention", "Comparison", "Outcome", "Context", "Concept", "Design"] }, text: str() })),
@@ -281,7 +281,8 @@ export const DB_RULES = `Database rules:
 - embase = Embase via Ovid: Emtree headings in lower case (exp heading/), .ti,ab,kw. (kw = author keywords), Embase publication types (.pt.) and Emtree terms for study types.
 - wos = Web of Science Core Collection, Advanced Search: TS=, TI=, AB=, AK=, DT=, PY=; NEAR/n; $ (0-1 char), ? (1 char); history #1 AND #2. No subject headings.
 - psycinfo = APA PsycInfo on EBSCOhost: DE "APA Thesaurus term" (explode = tick Explode, which writes out the narrower DE terms), TI, AB, KW field codes; Nn / Wn proximity; # (0-1 char), ? (1 char); history S1 AND S2; limiters for year/language/population (PO Human, PO Animal).
-- acm = ACM Digital Library, Edit Query box: Title:(...), Abstract:(...), Keyword:(...); AND/OR/NOT in capitals; no subject headings; wildcards (* ?) are IGNORED inside quotes and not allowed at the start of a word; no search history (one string); proximity only as "word word"~n without wildcards; year via the date filter.`;
+- acm = ACM Digital Library, Edit Query box: Title:(...), Abstract:(...), Keyword:(...); AND/OR/NOT in capitals; no subject headings; wildcards (* ?) are IGNORED inside quotes and not allowed at the start of a word; no search history (one string); proximity only as "word word"~n without wildcards; year via the date filter.
+- cochrane = Cochrane Library Search Manager (CENTRAL): term:ti,ab,kw and (a OR b):ti,ab,kw; MeSH as [mh "Heading"] (exploded) or [mh ^"Heading"] (not exploded); phrases in quotes but no truncation inside quotes (use NEXT: (health NEXT behavio*)); * truncation, ? one character; NEAR/n; history #1 OR #2; no language limit; dates only as Search Limits (date added to the Cochrane Library).`;
 
 export function translationPrompt(strategy, drafts, headings) {
   return `You are translating a systematic-review search strategy from MEDLINE (Ovid) to other databases. A rule-based translator already made a draft for each database, with warnings about what it could not translate. Check and improve each draft:

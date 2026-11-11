@@ -12,7 +12,8 @@
 //
 // parseStrategyText()   pasted text / Word table rows → [{ n, label, query, count }]
 // parseOvid()           one Ovid line → syntax tree
-// translateStrategy()   lines → MEDLINE (Ovid), Embase (Ovid), Web of Science, PsycInfo (EBSCO), ACM DL
+// translateStrategy()   lines → MEDLINE (Ovid), Embase (Ovid), Web of Science, PsycInfo (EBSCO), ACM DL,
+//                       Cochrane Library (CENTRAL)
 //
 // Everything here is plain functions without DOM access, so it runs in node tests and the CLI.
 
@@ -22,6 +23,7 @@ export const TARGETS = {
   wos: { label: "Web of Science Core Collection", short: "WoS" },
   psycinfo: { label: "APA PsycInfo (EBSCOhost)", short: "PsycInfo" },
   acm: { label: "ACM Digital Library", short: "ACM" },
+  cochrane: { label: "Cochrane Library (CENTRAL)", short: "Cochrane" },
 };
 
 // ================================================================== reading strategies
@@ -322,6 +324,19 @@ const PT = {
   acm: {},
 };
 
+// Cochrane Library Search Manager syntax (MECIR C24: search CENTRAL with MEDLINE and Embase). Sources:
+//   https://www.cochranelibrary.com/search-manager-help (Search Manager help; also linked as "Search help" in the app)
+//   https://www.cochranelibrary.com/documents/20182/439199364/Cochrane+Library+MeSH+Syntax.pdf (MeSH syntax, v1 Aug 2024)
+//   https://epoc.cochrane.org/sites/epoc.cochrane.org/files/uploads/Resources-for-authors2017/database_syntax_guide.pdf
+//   https://guides.lib.uw.edu/hsl/sr/searchtips (Cochrane column)
+// - text words: term:ti,ab,kw  /  (a OR b):ti,ab,kw   (:kw also holds MeSH/Emtree index terms)
+// - phrases in quotes; quoted phrases do NOT support truncation: use NEXT, e.g. (health NEXT behavio*)
+// - * = zero or more characters (also inside a word), ? = exactly one character
+// - [mh "Heading"] = MeSH exploded (default), [mh ^"Heading"] = not exploded
+// - NEAR/n (any order, n words apart), NEXT (adjacent, in order); AND/OR/NOT; history #1 OR #2
+// - dates are Search Limits (Cochrane Library publication date), not a field in the line
+const COCHRANE_FIELDS = { ti: "ti", ab: "ab", kf: "kw", kw: "kw", tw: "ti,ab,kw", mp: "ti,ab,kw", pt: "pt" };
+
 const currentYear = () => new Date().getFullYear();
 
 // ================================================================== translation
@@ -414,7 +429,7 @@ function makeTarget(target, headings) {
   const OR = ovid ? "or" : "OR", AND = ovid ? "and" : "AND", NOT = ovid ? "not" : "NOT";
   const unmapped = new Set(), dropped = new Set(), mapped = new Set(), explode = new Set();
   let usedKf = false;
-  const acmForms = new Set(), droppedPt = new Set();
+  const acmForms = new Set(), droppedPt = new Set(), cochraneMesh = new Set();
   const year = currentYear();
 
   // ---------------------------------------------------------------- fields
@@ -437,6 +452,11 @@ function makeTarget(target, headings) {
       if (tags === "TS" && parts.some(p => !["ti", "ab", "kf", "kw", "tw", "mp"].includes(p))) warn(`WoS: fields .${f}. searched as TS= (topic).`);
       return `${tags}=(${s})`;
     }
+    if (target === "cochrane") {
+      let codes = parts.flatMap(p => (COCHRANE_FIELDS[p] || (warn(`Cochrane: field .${p}. has no equivalent; searched in :ti,ab,kw.`), "ti,ab,kw")).split(","));
+      codes = ["ti", "ab", "kw", "pt"].filter(c => codes.includes(c));
+      return `${g}:${codes.join(",")}`;
+    }
     const map = target === "psycinfo" ? { ti: "TI", ab: "AB", kf: "KW", kw: "KW" } : { ti: "Title", ab: "Abstract", kf: "Keyword", kw: "Keyword" };
     let codes = parts.flatMap(p => (map[p] ? [map[p]] : ["tw", "mp"].includes(p) ? Object.values(map).filter((v, i, a) => a.indexOf(v) === i) : (warn(`${TARGETS[target].short}: field .${p}. has no equivalent; searched in title/abstract/keywords.`), Object.values(map))));
     codes = [...new Set(codes)];
@@ -451,8 +471,22 @@ function makeTarget(target, headings) {
     if (target === "psycinfo") w = w.replace(/\$\d*/g, "*").replace(/\?/g, "\u0001").replace(/#/g, "?").replace(/\u0001/g, "#");
     if (ovid) w = w.replace(/\$(?!\d)/g, "*");
     if (target === "acm") return acmWord(w.replace(/\$\d*/g, "*"), quoted);
+    if (target === "cochrane") return cochraneWord(w, quoted);
     if (quoted) return `"${w}"`;
     if (!ovid && /^(and|or|not|near|same)$/i.test(w)) return `"${w}"`;
+    return w;
+  }
+
+  // Cochrane: Ovid $ / $n / ? (0-1 char) become * (* also works inside a word, e.g. behavio*r), # (1 char)
+  // becomes ?. A phrase with a wildcard cannot be quoted, so its words are joined with NEXT.
+  function cochraneWord(v, quoted) {
+    let w = v;
+    if (/\$\d/.test(w)) warn(`Cochrane: limited truncation (${w}) written as * (unlimited).`);
+    if (/\?/.test(w)) warn(`Cochrane: Ovid ? (zero or one character) in ${w} written as * (zero or more).`);
+    w = w.replace(/\$\d*/g, "*").replace(/\?/g, "*").replace(/#/g, "?");
+    if (quoted && /[*?]/.test(w) && /\s/.test(w)) return `(${w.split(/\s+/).map(x => (/^(and|or|not|near|next)$/i.test(x) ? `"${x}"` : x)).join(" NEXT ")})`;
+    if (quoted) return `"${w}"`;
+    if (/^(and|or|not|near|next)$/i.test(w)) return `"${w}"`;
     return w;
   }
 
@@ -506,6 +540,13 @@ function makeTarget(target, headings) {
     const key = n.term.toLowerCase();
     if (target === "medline") return `${n.exp ? "exp " : ""}${n.major ? "*" : ""}${/[,()]|\b(and|or|not)\b/i.test(n.term) ? `"${n.term}"` : n.term}/${n.sub || ""}`;
     if (target === "wos" || target === "acm") { dropped.add(n.term); return ""; }
+    if (target === "cochrane") {
+      // CENTRAL uses MeSH itself, so the MEDLINE heading is kept as written.
+      if (n.major) warn(`Cochrane: major-topic heading *${n.term}/ searched as an ordinary [mh] heading (broader).`);
+      if (n.sub) warn(`Cochrane: qualifier /${n.sub} on ${n.term} left out (broader); add it in the MeSH tab if it matters.`);
+      cochraneMesh.add(n.term);
+      return `[mh ${n.exp ? "" : "^"}"${n.term.replace(/"/g, "")}"]`;
+    }
     const m = headings[key]?.[target];
     if (m === null) { dropped.add(n.term); return ""; }
     const list = Array.isArray(m) ? m : m ? [m] : null;
@@ -524,6 +565,10 @@ function makeTarget(target, headings) {
   function pubType(n) {
     const v = n.v.toLowerCase();
     if (target === "medline") return { s: `${n.q && /\s/.test(n.v) ? `"${n.v}"` : n.v}`, f: "pt" };
+    if (target === "cochrane") {
+      warn("Cochrane: publication types searched as :pt (as indexed in MEDLINE/Embase); records from other sources have none, so check what the line removes.");
+      return { s: `"${n.v}"`, f: "pt" };
+    }
     const m = PT[target][v];
     if (!m) { droppedPt.add(n.v); return { s: "" }; }
     if (target === "wos") return { s: `"${m}"`, f: "DT" };
@@ -548,7 +593,7 @@ function makeTarget(target, headings) {
         const to = ctx.num.get(n.n);
         if (to === null) return { s: "" };
         if (ctx.inline) return { s: ctx.complete.get(n.n), c: true };
-        return { s: target === "wos" || target === "acm" ? `#${to}` : target === "psycinfo" ? `S${to}` : String(to) };
+        return { s: target === "wos" || target === "acm" || target === "cochrane" ? `#${to}` : target === "psycinfo" ? `S${to}` : String(to) };
       }
       case "adj": {
         const [l, r] = n.a.map(x => emit(x, ctx));
@@ -559,8 +604,8 @@ function makeTarget(target, headings) {
           warn("ACM has no proximity operator for groups with truncation: adjN translated as AND within the same field (broader).");
           return { s: `${p(l)} AND ${p(r)}`, f: l.f === r.f ? l.f : null, c: true };
         }
-        const op = ovid ? `adj${n.n}` : target === "wos" ? `NEAR/${n.n}` : `N${n.n}`;
-        if (target === "wos" || target === "psycinfo") warn(`${TARGETS[target].short}: Ovid adj${n.n} translated as ${op}; the word distance is counted slightly differently.`);
+        const op = ovid ? `adj${n.n}` : target === "wos" || target === "cochrane" ? `NEAR/${n.n}` : `N${n.n}`;
+        if (target === "wos" || target === "psycinfo" || target === "cochrane") warn(`${TARGETS[target].short}: Ovid adj${n.n} translated as ${op}; the word distance is counted slightly differently.`);
         if (l.f !== r.f) return { s: `${p(full(l))} ${op} ${p(full(r))}`, c: true };
         return { s: `${p(l)} ${op} ${p(r)}`, f: l.f, c: true };
       }
@@ -606,10 +651,11 @@ function makeTarget(target, headings) {
     const notes = [];
     if (n.yr) {
       if (target === "wos") parts.push(`PY=(${from}-${to ?? year})`);
+      else if (target === "cochrane") notes.push(`publication year ${from}–${to ?? "current"}: Search Limits only offer the Cochrane Library publication date (date added), not the year of the study report; screen the years instead or note the difference`);
       else notes.push(`publication year ${from}–${to ?? "current"}: use the ${target === "acm" ? "Publication Date filter" : "Publication Year limiter"}`);
     }
     for (const o of n.other) {
-      if (/english/i.test(o)) { if (target === "wos") parts.push("LA=(English)"); else if (target === "psycinfo") parts.push("LA English"); else notes.push("English: use the language filter"); }
+      if (/english/i.test(o)) { if (target === "wos") parts.push("LA=(English)"); else if (target === "psycinfo") parts.push("LA English"); else if (target === "cochrane") notes.push("English: CENTRAL has no language limit; leave it out (MECIR C27/C35 advise against language limits) or screen for it"); else notes.push("English: use the language filter"); }
       else if (/humans?/i.test(o) && target === "psycinfo") parts.push("PO Human");
       else notes.push(`limit "${o}" has no equivalent, check by hand`);
     }
@@ -622,7 +668,7 @@ function makeTarget(target, headings) {
     warnings,
     warn,
     history: target !== "acm",
-    prefix: target === "wos" ? "#" : target === "psycinfo" ? "S" : "",
+    prefix: target === "wos" || target === "cochrane" ? "#" : target === "psycinfo" ? "S" : "",
     line(node, { num, complete }) {
       const ctx = { num, complete, inline: false };
       const ictx = { num, complete, inline: true };
@@ -649,6 +695,10 @@ function makeTarget(target, headings) {
       if (target === "acm") warn("ACM has no search history: the lines are for documentation (#n = line n); paste the one-string version into Edit Query. Boolean operators must be in capitals. Field syntax Title:/Abstract:/Keyword: follows the ACM query editor; check it there once.");
       if (droppedPt.size) warn(`${TARGETS[target].short}: no equivalent for publication type${droppedPt.size > 1 ? "s" : ""} ${[...droppedPt].map(x => `"${x}"`).join(", ")}; left out.${target === "acm" ? " Use the Content Type filter instead." : ""}`);
       if (acmForms.size) warn(`ACM ignores wildcards inside quotes: truncated phrases written out as singular/plural (check that no other endings matter): ${[...acmForms].join("; ")}.`);
+      if (target === "cochrane") {
+        if (cochraneMesh.size) warn(`Cochrane: MeSH kept as [mh] (exploded unless ^). CENTRAL records that come from Embase, registers or handsearching have no MeSH, so the free-text lines carry their recall.`);
+        warn("Cochrane: paste the lines into Search Manager (Advanced search), then select Trials (CENTRAL) in the results to count CENTRAL only. :kw also searches index terms.");
+      }
       if (target === "embase" && usedKf) warn("Embase: MEDLINE .kf. (author keywords) written as .kw. (Embase author keywords).");
     },
   };

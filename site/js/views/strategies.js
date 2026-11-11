@@ -31,7 +31,7 @@ function render(el, ctx, redraw) {
   selected = st?.id ?? null;
   el.append(h("h3", {}, "Database strategies & translations"),
     help("For strategies written for a database, e.g. MEDLINE via Ovid in a library search ticket. ",
-      h("strong", {}, "1"), " load or paste the strategy · ", h("strong", {}, "2"), " Sieve drafts Embase, Web of Science, PsycInfo and ACM by rules and lists what to check · ",
+      h("strong", {}, "1"), " load or paste the strategy · ", h("strong", {}, "2"), " Sieve drafts Embase, Web of Science, PsycInfo, ACM and the Cochrane Library (CENTRAL) by rules and lists what to check · ",
       h("strong", {}, "3"), " let ChatGPT/Claude check the drafts and map the subject headings (copy-paste → JSON) · ",
       h("strong", {}, "4"), " run each line in the database and note the count."),
     row(btn("Paste strategy", () => pasteDialog(ctx, redraw)), btn("Load from document", async () => {

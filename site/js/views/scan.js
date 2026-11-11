@@ -12,6 +12,7 @@ import { stageIcon } from "../icons.js";
 import { getText } from "../store.js";
 import { pmQuery } from "../query.js";
 import { pmCount, pmIds, pmFetch, europePmcPage } from "../apis.js";
+import { ctgovQuery, ctgovSearch, ctgovToRecord } from "../registers.js";
 import { REVIEW_TYPES } from "../review-plan.js";
 import { SYSTEM_SCREEN, screeningPrompt, screeningSchema, screeningBatchSchema, sourceBlock,
   SYSTEM_EXTRACT, extractionPrompt, extractionSchema, extractionBatchSchema, modelFields, recordValue } from "../prompts.js";
@@ -22,6 +23,12 @@ import { active, addRecords } from "./records.js";
 import { isInclude } from "./screening.js";
 import { fetchAuto } from "./fulltext.js";
 import { counts, prisma, criteriaFlowChart } from "./flow.js";
+import { robCard, robDone, robOverallLabel, humanRob, toolFor } from "./rob.js";
+import { certaintyCard, certaintyDone, findingKey } from "./certainty.js";
+import { secondReviewerCard, blindCopyBanner } from "./team.js";
+import { isBlindCopy, compareScreening, compareExtraction, reviewers } from "../team.js";
+import { aiFlags } from "./scan-check.js";
+import { autoCard, manuscriptCard } from "./auto.js";
 
 const today = () => new Date().toISOString().slice(0, 10);
 const normDecision = d => { const s = String(d || "").toLowerCase(); return s.startsWith("incl") ? "Include" : s.includes("snowball") ? "Exclude, but save for snowballing" : s.startsWith("excl") ? "Exclude" : "Unclear"; };
@@ -65,11 +72,18 @@ function scanValue(p, r, f, fresh) {
   if (rv !== null) return rv;
   return fresh.map(x => x.fields?.[f.id]?.value).find(v => !EMPTY(v)) ?? "";
 }
+// The values of one paper as shown in tables: [label, value] per field.
+export function paperValues(p, r, texts) {
+  const fresh = exResults(p, r, texts).fresh;
+  return p.extraction.fields.map(f => [f.label, scanValue(p, r, f, fresh)]);
+}
 export function papersForSummary(p, texts) {
   return scanSelected(p).map(r => {
     const fresh = exResults(p, r, texts).fresh;
     const vals = p.extraction.fields.map(f => [f.label, scanValue(p, r, f, fresh)]).filter(([, v]) => !EMPTY(v));
-    return { rid: r.rid, cite: `${surname(r.authors)} ${r.year || ""}. ${noDot(r.title)}. ${r.journal || ""}${hasText(p, r.rid) ? "" : " (abstract only)"}`,
+    const rob = robOverallLabel(p, r.rid);
+    if (rob && vals.length) vals.push(["Risk of bias / quality (judged by the reviewer)", rob]);
+    return { rid: r.rid, rob, cite: `${surname(r.authors)} ${r.year || ""}. ${noDot(r.title)}. ${r.journal || ""}${hasText(p, r.rid) ? "" : " (abstract only)"}`,
       lines: vals.length ? vals.map(([k, v]) => `${k}: ${v}`) : [`ABSTRACT: ${String(r.abstract || "").slice(0, 1500)}`] };
   });
 }
@@ -136,7 +150,7 @@ export const aiEx = (p, r, texts) => exResults(p, r, texts).fresh[0] || null;
 export const exKey = (p, r, texts) => exResults(p, r, texts).key;
 const extractChecked = (p, r, texts) => p.scan?.extract_checked?.[r.rid]?._key === exKey(p, r, texts);
 
-function stageState(p, texts) {
+export function stageState(p, texts) {
   const recs = active(p), sel = scanSelected(p);
   const summaryKey = p.scan?.summary ? scanKeys.summary(p, papersForSummary(p, texts)) : "";
   const hasPlan = !!(p.criteria.length && p.search.blocks.length && p.extraction.fields.length);
@@ -149,20 +163,49 @@ function stageState(p, texts) {
     texts: !!p.scan?.texts_tried || (sel.length > 0 && sel.every(r => p.fulltext[r.rid])),
     extractAI: sel.length > 0 && sel.every(r => exResults(p, r, texts).fresh.length),
     extract: sel.length > 0 && sel.every(r => extractChecked(p, r, texts)),
+    appraise: robDone(p, sel) || !!p.scan?.rob_skipped,
     summary: !!p.scan?.summary?.approved && (!p.scan.summary._key || p.scan.summary._key === summaryKey),
     summaryDrafted: !!p.scan?.summary && (!p.scan.summary._key || p.scan.summary._key === summaryKey),
     summaryStale: !!p.scan?.summary?._key && p.scan.summary._key !== summaryKey,
   };
 }
 
-function facts(p, texts) {
+export function facts(p, texts) {
   const c = counts(p), recs = active(p), sel = scanSelected(p);
   const cal = calibrationResult(p, rid => aiTA(p, recs.find(r => r.rid === rid)));
   const info = disclosureInfo(p, recs, sel, rid => aiTA(p, recs.find(r => r.rid === rid)), cal);
   return { identified: c.identified, duplicates: c.duplicates, screened: c.screened, humanChecked: c.taHuman,
     selected: sel.length, withText: sel.filter(r => hasText(p, r.rid)).length, calibration: cal, screenMode: screenMode(p),
-    extractChecked: sel.filter(r => extractChecked(p, r, texts)).length, disclosure: aiUseDisclosure(info) };
+    extractChecked: sel.filter(r => extractChecked(p, r, texts)).length, second: secondFacts(p, recs, sel), rob: robFacts(p, sel), certainty: certaintyFacts(p),
+    disclosure: aiUseDisclosure({ ...info, rob: robInfo(p, sel), certainty: p.certainty?.ai && certaintyFacts(p) ? { approach: certaintyFacts(p), model: p.certainty.ai.model } : null }) };
 }
+const aiOfScan = (p, recs) => rid => aiTA(p, recs.find(r => r.rid === rid));
+function secondFacts(p, recs, sel) {
+  const names = reviewers(p);
+  if (!names.length) return null;
+  const n = names[0];
+  const s = compareScreening(p, n, recs.map(r => r.rid));
+  const e = compareExtraction(p, n, sel.map(r => r.rid), modelFields(p.extraction.fields));
+  return { name: n, screening: s.n > 0 && !s.missingOther && !s.open.length, kappa: s.kappa, conflicts: s.conflicts.length,
+    flagged: recs.filter(r => p.screening.human?.[r.rid]?.ai_checked).length, extraction: e.papers && e.papers >= sel.length && !e.conflicts.length ? e : null };
+}
+function robFacts(p, sel) {
+  if (!robDone(p, sel)) return null;
+  const tools = [...new Set(sel.map(r => toolFor(p, r.rid).name))].join(", ");
+  const names = reviewers(p);
+  return { done: true, tools, second: names.some(n => sel.every(r => p.team.reviewers[n].rob?.[r.rid])) };
+}
+function robInfo(p, sel) {
+  const done = sel.filter(r => humanRob(p, r.rid));
+  if (!done.length) return null;
+  const models = [...new Set(Object.values(p.rob?.runs || {}).map(r => r.model || r.label).filter(Boolean))];
+  return models.length ? { models, n: done.length, changed: done.reduce((k, r) => k + (humanRob(p, r.rid).ai_changed || 0), 0) } : null;
+}
+function certaintyFacts(p) {
+  const f = scanFindings(p);
+  return f.length && certaintyDone(p, f) ? (p.certainty.approach === "cerqual" ? "GRADE-CERQual" : "GRADE") : null;
+}
+export const scanFindings = p => (p.scan?.summary?.findings || []).map(x => ({ finding: x.statement, paper_ids: x.paper_ids || [] }));
 
 const example = id => h("div", { class: "scan-example" }, h("div", { class: "scan-example-k" }, "Example"),
   h("dl", {}, SCAN_EXAMPLES[id].flatMap(([k, v]) => [h("dt", {}, k), h("dd", {}, v)])));
@@ -180,6 +223,7 @@ const scrollTo = id => setTimeout(() => document.getElementById(`scan-${id}`)?.s
 export async function render(m, ctx) {
   const p = ctx.project;
   p.scan ||= {};
+  if (isBlindCopy(p)) return secondWork(m, ctx);
   const cache = await loadCache(p.scan.example);
   if (cache && !p.scan.caps) p.scan.caps = { ...cache.caps };
   showExamples = !cache;
@@ -199,6 +243,7 @@ export async function render(m, ctx) {
       "Change the question, a criterion, a field or the search terms and only that part needs your own AI route.")),
     row(firstOpen >= 0 && btn([stageIcon("play"), firstOpen ? "Play the rest of the example" : "Play the example"], () => play(ctx, cache), "primary"),
       h("span", { class: "muted small" }, "or go stage by stage below"))));
+  m.append(autoCard(ctx, cache));
   m.append(h("nav", { class: "scan-rail", "aria-label": "Scan stages" }, SCAN_STAGES.map((s, i) =>
     h("a", { href: `#/p/${p.id}/scan`, class: `scan-chip${st[s.id] ? " done" : i === firstOpen ? " current" : ""}`,
       onclick: e => { e.preventDefault(); scrollTo(s.id); } },
@@ -210,9 +255,12 @@ export async function render(m, ctx) {
   if (st.screen) {
     m.append(textsStage(ctx, st));
     m.append(extractStage(ctx, st, cache, texts));
+    if (st.extract) m.append(appraiseStage(ctx, st, texts));
     m.append(summaryStage(ctx, st, cache, texts));
     m.append(continueCard(ctx, texts));
   }
+  const ms = manuscriptCard(ctx, texts);
+  if (ms) m.append(ms);
   if (firstOpen > 0) setTimeout(() => document.getElementById(`scan-${SCAN_STAGES[firstOpen]?.id}`)?.scrollIntoView({ block: "start" }), 60);
 }
 
@@ -240,6 +288,7 @@ export async function play(ctx, cache) {
   const e = applyCachedExtract(p, cache, texts);
   if (e.miss) return stop("extract", `${e.hit} answers replayed; ${e.miss} papers need your AI route (new, changed, or a full text that differs from the example).`);
   if (scanSelected(p).some(r => !extractChecked(p, r, texts))) return stop("extract", "Your turn: check the extracted values against their quotes. Then play on.", "ok");
+  if (!robDone(p, scanSelected(p)) && !p.scan.rob_skipped) return stop("appraise", "Your turn: appraise the studies with the tool for their design, or skip appraisal for this scan (reported as a limitation).", "ok");
   if (!p.scan.summary || p.scan.summary._key !== scanKeys.summary(p, papersForSummary(p, texts))) {
     if (!applyCachedSummary(p, cache, texts)) return stop("summary", "Your checked data differ from the example: write the summary with your AI route.");
   }
@@ -312,6 +361,8 @@ function searchStage(ctx, st, cache) {
   const body = [
     h("details", { class: "inline" }, h("summary", {}, "The two queries"), h("h4", {}, "PubMed"), h("pre", {}, pq || "(no blocks)"),
       h("h4", {}, "Europe PMC: preprints and PubMed Central articles not in PubMed"), h("pre", {}, eq || "(no blocks)")),
+    h("label", { class: "check small" }, h("input", { type: "checkbox", checked: !!p.scan.caps.registers, onchange: e => { p.scan.caps.registers = e.target.checked ? 50 : 0; ctx.save(); ctx.rerender(); } }),
+      " Also search ClinicalTrials.gov: registered trials, completed or not (MECIR C27; relevant for interventions)"),
     row(field("PubMed", capSel("pubmed")), field("Europe PMC", capSel("europepmc")),
       btn("Check counts", async () => {
         countsEl.textContent = "counting…";
@@ -326,7 +377,7 @@ function searchStage(ctx, st, cache) {
     prog.el,
   ];
   body.push(pressCheck(ctx));
-  if (s) body.push(help(`Searched ${s.date}${s.from_example ? " (example search, the recorded records)" : ""}: PubMed ${fmt(s.pubmed.fetched)} of ${fmt(s.pubmed.count)}, Europe PMC ${fmt(s.europepmc.fetched)} of ${fmt(s.europepmc.count)} · `,
+  if (s) body.push(help(`Searched ${s.date}${s.from_example ? " (example search, the recorded records)" : ""}: PubMed ${fmt(s.pubmed.fetched)} of ${fmt(s.pubmed.count)}, Europe PMC ${fmt(s.europepmc.fetched)} of ${fmt(s.europepmc.count)}${s.registers ? `, ClinicalTrials.gov ${fmt(s.registers.fetched)} of ${fmt(s.registers.count)}` : ""} · `,
     `${fmt(p.records.length)} records, ${fmt(p.records.filter(r => r.duplicate_of).length)} duplicates linked. `, h("a", { href: `#/p/${p.id}/records` }, "See records →")));
   else if (p.records.length) body.push(help(`${fmt(p.records.length)} records are already in this project; the scan screens those too.`));
   return stageCard(2, SCAN_STAGES[1], st.search, ...body);
@@ -380,14 +431,23 @@ export async function runSearch(ctx, pq, eq, prog, frozen = null) {
     const epRecs = frozen ? await epmcByIds(frozen.europepmc.ids) : e.results.map(epmcToRecord);
     const seen = new Set(p.records.map(r => r.europepmc_id).filter(Boolean));
     const ep = epRecs.filter(r => !seen.has(r.europepmc_id) && !(r.pmid && have.has(r.pmid))).map(r => ({ ...r, source: "Europe PMC (scan)" }));
+    let reg = null, regRecs = [];
+    if (caps.registers && !frozen) {
+      prog?.set(2, 3, "ClinicalTrials.gov");
+      const term = ctgovQuery(p.search.blocks);
+      const res = await ctgovSearch(term, caps.registers);
+      const haveNct = new Set(p.records.map(r => r.nct_id).filter(Boolean));
+      regRecs = res.results.map(ctgovToRecord).filter(r => !haveNct.has(r.nct_id)).map(r => ({ ...r, source: "ClinicalTrials.gov (scan)" }));
+      reg = { query: term, count: res.count, fetched: res.results.length };
+    }
     prog?.set(2, 3, "deduplicating");
     const date = frozen ? frozen.date : today();
     p.scan.search = { date, key: scanKeys.search(pq, eq, caps), from_example: !!frozen,
-      pubmed: { query: pq, count, fetched: ids.length, ids }, europepmc: { query: eq, count: e.count, fetched: epRecs.length, ids: epRecs.map(r => r.europepmc_id) } };
+      pubmed: { query: pq, count, fetched: ids.length, ids }, europepmc: { query: eq, count: e.count, fetched: epRecs.length, ids: epRecs.map(r => r.europepmc_id) }, ...(reg ? { registers: reg } : {}) };
     p.search.versions.push({ name: `Evidence scan ${date}`, date, count, recall: p.search.validation.length ? "not tested" : "–", query: pq,
       blocks: structuredClone(p.search.blocks), note: `evidence scan: ${ids.length} most relevant PubMed records; Europe PMC ${epRecs.length} of ${e.count}${frozen ? " (example search)" : ""}` });
     prog?.set(3, 3, "done");
-    addRecords(ctx, [...pm, ...ep], frozen ? "example search" : "scan");
+    addRecords(ctx, [...pm, ...ep, ...regRecs], frozen ? "example search" : "scan");
   } catch (err) { toast(err.message, "err"); }
 }
 
@@ -423,6 +483,8 @@ function screenStage(ctx, st, cache) {
         h("input", { type: "radio", name: "screen-mode", checked: screenMode(p) === id, onchange: () => { p.scan.screen_mode = id; ctx.save(); ctx.rerender(); } }),
         " ", h("strong", {}, m.label), h("span", { class: "small muted" }, ` · ${m.hint}`)))),
     screenCheckCard(ctx, recs, rid => aiTA(p, recs.find(r => r.rid === rid)), () => ctx.rerender(), r => scanKeys.screen(p, r)));
+  if (st.screenAI && screenMode(p) === "dual" && recs.every(r => p.screening.human?.[r.rid]?.decision))
+    body.push(secondReviewerCard(ctx, { screening: recs.map(r => r.rid), page: "scan" }, { title: "Second reviewer: screening" }));
   const screened = recs.length - todo.length;
   if (screened && st.screen) {
     const { el } = criteriaFlowChart(p, recs);
@@ -487,7 +549,45 @@ function extractStage(ctx, st, cache, texts) {
   return stageCard(5, SCAN_STAGES[4], st.extract, ...body);
 }
 
-// ------------------------------------------------------------------ 6 · summary
+// ------------------------------------------------------------------ 6 · appraise
+function appraiseStage(ctx, st, texts) {
+  const p = ctx.project, sel = scanSelected(p);
+  const body = [];
+  if (p.scan.rob_skipped && !robDone(p, sel)) {
+    body.push(help(`Skipped on ${p.scan.rob_skipped}: the summary reports that the studies were not appraised (rapid review rec. 14-16).`),
+      row(btn("Appraise the studies after all", () => { delete p.scan.rob_skipped; ctx.save(); ctx.rerender(); })));
+    return stageCard(6, SCAN_STAGES[5], true, ...body);
+  }
+  body.push(robCard(ctx, sel, { texts, onDone: () => ctx.rerender(),
+    intro: "Judge each study with the tool for its design: the AI drafts every domain with a quote, you judge. Optional in a scan, required in a rapid or systematic review (MECIR C52; rapid review rec. 14)." }));
+  if (!robDone(p, sel)) body.push(row(btn("Skip appraisal for this scan", () => { p.scan.rob_skipped = today(); ctx.save(); ctx.rerender(); }, "ghost"),
+    h("span", { class: "muted small" }, "the summary then names it as a limitation")));
+  else body.push(secondReviewerCard(ctx, { screening: [], extraction: sel.map(r => r.rid), rob: sel.map(r => r.rid), page: "scan" },
+    { title: "Second reviewer: extraction and appraisal", fields: modelFields(p.extraction.fields),
+      intro: "A second person extracts and appraises the same papers in a blind copy (systematic review: MECIR C46, C53) or verifies yours (rapid review: rec. 12, 16). Differences come back here and in the risk-of-bias table." }));
+  return stageCard(6, SCAN_STAGES[5], st.appraise, ...body);
+}
+
+// ------------------------------------------------------------------ the second reviewer's blind copy
+async function secondWork(m, ctx) {
+  const p = ctx.project, t = p.team.origin.tasks || {};
+  p.scan.screen_mode = "independent";
+  m.append(blindCopyBanner(ctx));
+  const byId = rid => p.records.find(r => r.rid === rid);
+  const recs = (t.screening || []).map(byId).filter(Boolean);
+  if (recs.length) m.append(card(`Screen ${recs.length} records blind`, help("Decide every record on its title and abstract against the criteria. Nobody's decisions and no AI suggestions are shown."),
+    h("ol", { class: "small" }, p.criteria.map(c => h("li", {}, h("strong", {}, c.label), ": ", c.description))),
+    screenCheckCard(ctx, recs, () => null, () => ctx.rerender())));
+  const sel = (t.extraction || []).map(byId).filter(Boolean);
+  if (sel.length) {
+    const texts = await loadTexts(p, sel);
+    m.append(card(`Extract ${sel.length} papers`, help("Fill in every field from the paper yourself."),
+      extractCheckCard(ctx, sel, texts, modelFields(p.extraction.fields), () => null, () => "second-reviewer", () => ctx.rerender())));
+    if ((t.rob || []).length) m.append(robCard(ctx, sel, { texts, noAI: true, intro: "Judge every domain of every study yourself, with the tool's full signalling questions." }));
+  }
+}
+
+// ------------------------------------------------------------------ 7 · summary
 const citeShort = r => `${surname(r.authors)} ${r.year || ""}`.trim();
 
 function summaryStage(ctx, st, cache, texts) {
@@ -498,10 +598,10 @@ function summaryStage(ctx, st, cache, texts) {
   const f = facts(p, texts);
   const flow = criteriaFlowChart(p);
   const key = scanKeys.summary(p, papers);
-  if (!st.extract) {
-    body.push(help("The summary is written from the values you checked: finish the check in stage 5 first."),
+  if (!st.extract || !st.appraise) {
+    body.push(help(!st.extract ? "The summary is written from the values you checked: finish the check in stage 5 first." : "Appraise the studies in stage 6 first (or skip appraisal for this scan)."),
       h("div", { class: "scan-graphs" }, h("div", {}, h("h4", {}, "Inclusion and exclusion"), flow.el), h("div", { class: "prisma" }, prisma(counts(p)))));
-    return stageCard(6, SCAN_STAGES[5], false, ...body);
+    return stageCard(7, SCAN_STAGES[6], false, ...body);
   }
   const hit = (!s || st.summaryStale) && cache?.answers?.[key];
   if (st.summaryStale) body.push(h("p", { class: "badge warn" }, "The selection or extracted data changed after this summary was written: write it again below."));
@@ -541,7 +641,8 @@ function summaryStage(ctx, st, cache, texts) {
     done: () => { ctx.save(); ctx.rerender(); },
   });
   body.push(s && !st.summaryStale || hit ? h("details", { class: "advanced" }, h("summary", {}, hit ? "or ask your own AI route" : "Write the summary again (e.g. after checking values)"), panel) : panel);
-  return stageCard(6, SCAN_STAGES[5], st.summary, ...body);
+  if (s && st.summaryDrafted) body.push(certaintyCard(ctx, scanFindings(p), papers.map(x => ({ ...x, rob: x.rob })), { empty: "The summary has no findings to rate." }));
+  return stageCard(7, SCAN_STAGES[6], st.summary, ...body);
 }
 
 // Every prompt of this scan, built by the same code from the project (AI use disclosure: prompts documented).

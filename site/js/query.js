@@ -175,6 +175,67 @@ export function toWos(blocks) {
   return { text: lines.map((l, i) => `#${String(i + 1).padEnd(3)}${l}`).join("\n"), warnings: [...warn] };
 }
 
+// ------------------------------------------------------------------ Cochrane Library (CENTRAL)
+// Search Manager syntax (https://www.cochranelibrary.com/search-manager-help; see the notes above
+// COCHRANE_FIELDS in strategy.js): term:ti,ab,kw, [mh "X"] exploded, [mh ^"X"] not exploded, NEAR/n,
+// no truncation inside quotes (words joined with NEXT instead), history #1 AND #2.
+const CL_FIELDS = { tiab: "ti,ab,kw", tw: "ti,ab,kw", all: "ti,ab,kw", "tw:noexp": "ti,ab,kw", ti: "ti", ab: "ab", pt: "pt", ot: "kw", kw: "kw" };
+const clWord = (w, quoted = false) => {
+  const x = String(w).replace(/^"|"$/g, "");
+  if (/\s/.test(x) && /[*?]/.test(x)) return `(${x.split(/\s+/).join(" NEXT ")})`;
+  return quoted || /[\s-]/.test(x) || /^(and|or|not|near|next)$/i.test(x) ? `"${x}"` : x;
+};
+
+function clTerm(t, warn) {
+  if (t.kind === "near") return { field: CL_FIELDS[t.field] || "ti,ab,kw", text: `((${t.left.map(w => clWord(w)).join(" OR ")}) NEAR/${t.n} (${t.right.map(w => clWord(w)).join(" OR ")}))` };
+  if (t.kind === "raw") {
+    let kept = 0;
+    let text = t.src.replace(/("([^"]+)"|[^\s()"[\]]+)\s*\[([^\]]+)\]/g, m => {
+      const r = clTerm(parseTerm(m), warn);
+      if (r.text) kept++;
+      return r.text ? (r.field ? `${r.text}:${r.field}` : r.text) : "";
+    });
+    if (!kept) return { field: null, text: "" };
+    for (let i = 0; i < 5; i++) text = text.replace(/\(\s*\)/g, "").replace(/\b(AND|OR|NOT)\s+(?=\)|$|\b(AND|OR|NOT)\b)/g, "").replace(/\(\s*(AND|OR)\s+/g, "(").trim();
+    warn.add(`Complex line translated token by token, check by hand: ${t.src.slice(0, 80)}`);
+    return { field: null, text };
+  }
+  if (t.field.startsWith("mesh") || t.field === "majr") {
+    if (t.field === "majr") warn.add(`Cochrane: major-topic MeSH "${t.text}" searched as an ordinary [mh] heading (broader).`);
+    return { field: null, text: `[mh ${t.field === "mesh:noexp" ? "^" : ""}"${t.text.replace(/"/g, "")}"]` };
+  }
+  const prox = t.field.match(/^(tiab|ti):~(\d+)$/);
+  if (prox) return { field: CL_FIELDS[prox[1]], text: `(${t.text.split(/\s+/).map(w => clWord(w)).join(` NEAR/${prox[2]} `)})` };
+  if (t.field === "pt") warn.add("Cochrane: publication types searched as :pt (MEDLINE/Embase indexing); records from other sources have none.");
+  if (["dp", "pdat", "edat", "la", "lang", "sb", "filter"].includes(t.field)) { warn.add(`Cochrane: ${t.src} left out; use Search Limits (dates) or screen for it.`); return { field: null, text: "" }; }
+  if (!CL_FIELDS[t.field]) warn.add(`Cochrane: field [${t.field}] has no equivalent; searched as :ti,ab,kw for ${t.src}`);
+  return { field: CL_FIELDS[t.field] || "ti,ab,kw", text: clWord(t.text, t.quoted) };
+}
+
+export function toCochrane(blocks) {
+  const warn = new Set();
+  const lines = [], ids = {};
+  for (const b of blocks.filter(b => b.enabled !== false)) {
+    const parts = blockTerms(b).map(l => clTerm(parseTerm(l), warn)).filter(p => p.text);
+    const byField = {}, loose = [];
+    for (const p of parts) p.field ? (byField[p.field] ||= []).push(p.text) : loose.push(p.text);
+    const segs = [...loose, ...Object.entries(byField).map(([f, ts]) => {
+      const u = [...new Set(ts)];
+      return u.length === 1 && !/\s/.test(u[0].replace(/^"[^"]*"$/, "x")) ? `${u[0]}:${f}` : `(${u.join(" OR ")}):${f}`;
+    })];
+    if (!segs.length) continue;
+    lines.push(`${segs.join(" OR ")}    [${b.label}]`);
+    ids[b.id] = lines.length;
+  }
+  const inc = blocks.filter(b => b.enabled !== false && b.role !== "exclude" && ids[b.id]).map(b => `#${ids[b.id]}`);
+  const exc = blocks.filter(b => b.enabled !== false && b.role === "exclude" && ids[b.id]).map(b => `#${ids[b.id]}`);
+  if (inc.length > 1) lines.push(inc.join(" AND "));
+  const comb = inc.length > 1 ? `#${lines.length}` : inc[0];
+  if (exc.length && comb) lines.push(`${comb} NOT (${exc.join(" OR ")})`);
+  warn.add("Cochrane: run in Search Manager, then select Trials (CENTRAL) in the results. CENTRAL records from Embase and other sources have no MeSH, so the free-text terms carry their recall.");
+  return { text: lines.map((l, i) => `#${String(i + 1).padEnd(3)}${l}`).join("\n"), warnings: [...warn] };
+}
+
 // Terms that appear in one version but not the other (per block), for the version diff.
 export function diffBlocks(a, b) {
   const out = [];

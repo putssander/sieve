@@ -87,7 +87,7 @@ function documentsCard(ctx) {
   return h("section", { class: "card start-doc" },
     h("h3", {}, "Start from a document"),
     help("Already have a search ticket, protocol, PICO form, proposal or a criteria flowchart (image)? Load it (.docx, .pdf, .txt, .png/.jpg) and Sieve fills in what it finds: the review question, PICO elements, "
-      + "known articles (PMIDs/DOIs → validation or hold-out set) and search tables (→ step 2, with translations for Embase, Web of Science, PsycInfo and ACM). "
+      + "known articles (PMIDs/DOIs → validation or hold-out set) and search tables (→ step 2, with translations for Embase, Web of Science, PsycInfo, ACM and the Cochrane Library (CENTRAL)). "
       + "You see the list first. The assistant can then draft the eligibility criteria from the same document."),
     row(btn("Load document…", load, "primary"), btn("Attach without filling in", attachOnly, "ghost")),
     pr.documents.map((d, i) => h("details", { class: "block", style: { marginTop: "8px" } },

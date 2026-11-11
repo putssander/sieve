@@ -53,7 +53,38 @@ PMC live, the most relevant records, duplicates linked) → **screen** (every ti
 flow, inclusion/exclusion per criterion and a limitations box written from what was actually done).
 It works with copy-paste, an API key or a local model. Everything is saved in the normal project fields, so
 *Continue as a scoping / systematic review* opens the eight steps with the work already in place.
-It is labelled an evidence scan, not a systematic review (open databases, one AI screener, open-access texts).
+It is labelled an evidence scan, not a systematic review (open databases, open-access texts, limitations listed).
+
+No step is left to the AI alone (Cochrane Rapid Reviews Methods Group 2025: "Do not rely on AI to fully automate any
+step"): you approve the plan as the protocol, check the search (PRESS), screen every record blind with the AI as
+independent second reviewer (Hamel et al. 2021; or two people with the AI as a check, or a faster assisted mode
+after a blind calibration sample with κ), check every extracted value against its quote, judge every risk-of-bias
+domain (or skip appraisal and report it), approve the summary and rate the certainty of each finding (GRADE /
+GRADE-CERQual). An AI use disclosure with every prompt is generated. *Go deeper* recommends a route (systematic,
+rapid, scoping) and lists what that guidance still asks of the project.
+
+**Auto mode** (top of the scan page): question in, manuscript draft out. One click runs every AI step unattended
+(plan, live search, screening, open-access texts, extraction, appraisal, summary, certainty, introduction and
+discussion). Methods and results are written by code from what was actually run; only the introduction and discussion
+come from the model. The draft is marked **UNVERIFIED AI DRAFT** with a ⚠ on every part no person has checked, and
+lists the checks still to do; it writes no human decision. Needs an API key or a local model (copy-paste cannot run
+unattended); example scans replay their recorded answers. Exports: Markdown and a .doc that Word opens.
+
+## Second reviewer, risk of bias, certainty, checklists
+
+* **Second reviewer** (steps 6 and 7, and the scan): a blind copy of the project, on this device or as a file for a
+  colleague, without your decisions or AI runs. Their decisions come back as a small file (ids and judgements only),
+  with κ between you and a consensus step that keeps both original decisions (MECIR C39, C46, C53; JBI 10.2.6).
+* **Risk of bias / quality** (step 7 and the scan): RoB 2, ROBINS-I, QUADAS-2, PROBAST+AI and the JBI qualitative
+  checklist; the AI drafts each domain with a quote checked word for word, you judge every domain; traffic-light
+  table, summary per domain and CSV.
+* **Certainty** (step 8 and the scan): GRADE (including the ROBINS-I start of GRADE 18) or GRADE-CERQual per outcome
+  or finding, a reason for every concern, and a summary-of-findings table with footnotes.
+* **Reporting** (step 8): PRISMA 2020, PRISMA-ScR and PRISMA-S checklists with, per item, what Sieve holds for this
+  project, and an AI use statement built from every stored run. Item text verified against the published checklists
+  (PRISMA 2020 and PRISMA-S verbatim under CC BY; PRISMA-ScR paraphrased).
+* **Searching**: Cochrane Library (CENTRAL) translations; ClinicalTrials.gov searched live from the scan (counted as
+  registers in the PRISMA flow); a query and steps for the WHO ICTRP portal, which has no free API.
 
 **Example scans with recorded answers** (home page → *See an example scan*, or *Quick scan first* on an example
 question): every AI answer is stored with a fingerprint of its exact input, so the scan plays through without a key
@@ -70,7 +101,8 @@ still need an answer; only ids, counts and answers are published, no abstracts o
   runs for screening and extraction. Built by `node tools/build-example.mjs` (public sources only).
 * **Methods & guidance** (sidebar, and *Method* on every step): the accepted method per step with its source
   (PRISMA 2020, PRISMA-S, PRESS 2015, relative recall, Bramer deduplication and database combinations, dual screening,
-  SAFE, double extraction, PROBAST+AI, the 2025 joint statement on AI in evidence synthesis), what Sieve does,
+  SAFE, double extraction, RoB 2, ROBINS-I, PROBAST+AI, GRADE, GRADE-CERQual, the 2025 joint statement and the Cochrane
+  rapid review position on AI), what Sieve does,
   and the gaps. Also as [docs/methods.md](docs/methods.md) (`node tools/build-methods.mjs`).
 
 ## Help on every page

@@ -10,7 +10,7 @@ export const GPT_STARTERS = [
   "What does Sieve do, and where do I start?",
   "Help me turn my research question into PICO and eligibility criteria",
   "Check my MEDLINE (Ovid) search strategy",
-  "Translate my strategy to Embase, Web of Science, PsycInfo and ACM",
+  "Translate my strategy to Embase, Web of Science, PsycInfo, ACM and the Cochrane Library (CENTRAL)",
 ];
 export const GPT_INSTRUCTIONS_LIMIT = 8000;   // ChatGPT's limit for GPT instructions
 
@@ -33,7 +33,7 @@ The user copied a whole Sieve step with their own question. Answer the question 
 
 ## When the user just asks something
 Help them in normal conversation: explain systematic-review methods (PRISMA 2020, PRESS, PICO/PCC/SPIDER, validation and hold-out sets, deduplication, screening with two reviewers, data extraction), and tell them which Sieve step to use:
-1 Protocol (question, PICO, criteria; "Start from a document" fills it from a ticket or proposal) · 2 Search (PubMed concept blocks tested live against validation and hold-out articles; database strategies with translations for Embase, Web of Science, PsycInfo and ACM) · 3 Records (import RIS/CSV per database, deduplicate, recall per database) · 4 Verify (Crossref checks) · 5 Full text · 6 Screening · 7 Extraction · 8 Report (PRISMA).
+1 Protocol (question, PICO, criteria; "Start from a document" fills it from a ticket or proposal) · 2 Search (PubMed concept blocks tested live against validation and hold-out articles; database strategies with translations for Embase, Web of Science, PsycInfo, ACM and the Cochrane Library (CENTRAL)) · 3 Records (import RIS/CSV per database, deduplicate, recall per database) · 4 Verify (Crossref checks) · 5 Full text · 6 Screening · 7 Extraction · 8 Report (PRISMA).
 Every Sieve page has a "Copy this page for ChatGPT" button: suggest it when the user needs help with a specific step. Be honest about limits: models make mistakes, screening and extraction need a human check, and searches must be run and recorded in each database by the researcher.`;
 }
 
@@ -44,7 +44,7 @@ const TASKS = [
   ["Draft PubMed concept blocks", "searchBlocksSchema", "Concept blocks in PubMed syntax: \"phrase\"[tiab], Heading[Mesh], NEAR/4(a | b ; x | y)[tiab]."],
   ["Suggest search terms", "suggestSchema", "Terms to add (recover missed validation articles) or remove (noise), per block."],
   ["Precision check of titles", "titleJudgeSchema", "yes/maybe/no per title."],
-  ["Translate a database strategy", "translationSchema", "Check rule-based drafts for medline, embase, wos, psycinfo, acm; map MeSH to Emtree and APA Thesaurus."],
+  ["Translate a database strategy", "translationSchema", "Check rule-based drafts for medline, embase, wos, psycinfo, acm, cochrane; map MeSH to Emtree and APA Thesaurus."],
 ];
 
 export function gptKnowledge() {
