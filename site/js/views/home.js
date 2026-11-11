@@ -5,7 +5,7 @@ import { STEPS } from "../app.js";
 import { pickDocument, setPending } from "./docload.js";
 import { disclosure } from "../disclosure.js";
 import { stageIcon } from "../icons.js";
-import { openExample } from "./example.js";
+import { openExample, startScan, pickScanExample } from "./example.js";
 import { platformStrip } from "../brand.js";
 import { reviewStarter } from "./review-start.js";
 import { applyReviewPlan } from "../review-plan.js";
@@ -25,7 +25,7 @@ export async function render(m, ctx) {
   const projects = await listProjects();
   const overview = h("section", { class: "workflow-overview home-workflow" },
     h("div", { class: "section-heading" }, h("div", {}, h("h2", {}, "A clear path through your review"), h("p", { class: "muted" }, "Explore any step before you begin.")),
-      btn("Try an example", () => openExample(ctx, "protocol"), "ghost sm")),
+      row(btn("Try an example", () => openExample(ctx, "protocol"), "ghost sm"), btn([stageIcon("scan"), "See an example scan"], () => pickScanExample(ctx), "ghost sm"))),
     h("nav", { class: "pipeline", "aria-label": "Explore the eight steps" }, STEPS.map(s => h("a", { class: "pstep", href: `#/guide/${s.id}`, title: `${s.n}. ${s.label}: ${s.sub}` },
       stageIcon(s.id), h("span", {}, h("b", {}, s.label), h("small", {}, s.sub))))));
   const starter = reviewStarter({ home: true, resumeHref: projects.length ? `#/p/${projects[0].id}/protocol` : "",
@@ -34,7 +34,8 @@ export async function render(m, ctx) {
       applyReviewPlan(p.protocol, draft);
       await saveProject(p);
       ctx.go(`#/p/${p.id}/protocol`);
-    } });
+    },
+    onScan: draft => startScan(ctx, draft, draft.exampleId || null) });
   destroyStarter = starter.destroy;
   m.append(starter.el, overview);
 

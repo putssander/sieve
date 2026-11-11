@@ -1,4 +1,5 @@
 import { stepIntro } from "../disclosure.js";
+import { criteriaFlowCard } from "./flow.js";
 import { termHelp } from "../explain.js";
 // Step 6: screening. Any number of model runs (copy-paste, API, local/Colab, imported) next to
 // the human decision. Disagreements are sorted to the top, every evidence quote is checked
@@ -119,6 +120,7 @@ export async function render(m, ctx) {
     help("⚑ = the model asks for human review · ❝✗ = an evidence quote does not occur in the title/abstract/full text (possible hallucination). Click a row to decide."),
     tableHost));
 
+  if (stage === "ta") { const flowCard = criteriaFlowCard(p, recs); if (flowCard) m.append(flowCard); }
   m.append(metricsCard(p, recs, runs, layer));
 }
 

@@ -1,0 +1,18 @@
+[
+ {
+  "id": "writing",
+  "name": "Education",
+  "draft": {
+   "question": "Do peer writing groups improve doctoral students’ writing confidence compared with working alone?",
+   "purpose": "answer",
+   "type": "systematic",
+   "framework": "PICO",
+   "exampleId": "writing",
+   "maintenance": "update"
+  },
+  "model": "claude-opus-5-5 (copy-paste)",
+  "date": "2026-11-10",
+  "records": 32,
+  "included": 7
+ }
+]

@@ -1,0 +1,24 @@
+{
+ "answer": "This scan found no study that measured writing confidence or self-efficacy in doctoral students in a peer writing group compared with working alone, so the question cannot be answered directly. The closest evidence is one randomised trial in which a three-day writing retreat improved doctoral researchers' mental health compared with a waitlist [37887691], and small uncontrolled studies that report more writing output or less procrastination after group writing [34641947][29177187][39218864]. Confidence is named as an aim or suggested benefit, but none of the seven papers reports it as a measured outcome [40915763][23937950][39218864].",
+ "findings": [
+  {"statement": "In the only randomised comparison, 100 doctoral researchers were assigned to a three-day structured writing retreat or a waitlist; the retreat reduced psychological distress (d = 1.57) and improved emotional (d = 1.84), psychological (d = 1.55) and social (d = 0.71) wellbeing. Writing confidence was not measured.", "paper_ids": ["37887691"]},
+  {"statement": "In that trial, the productivity participants experienced during the retreat predicted lower distress (β = −0.29) and better wellbeing, so productivity, not confidence, is the writing-related mechanism studied.", "paper_ids": ["37887691"]},
+  {"statement": "A 15-day facilitated writing group programme for 20 master's thesis students lowered thesis procrastination from 72.3 to 67.3 directly after the programme and to 62.0 two weeks later (single group, double pretest).", "paper_ids": ["34641947"]},
+  {"statement": "Retreat and group programmes report writing output rather than confidence: 11 manuscripts from 7 graduate students and 24 manuscripts from 14 trainees and 2 faculty in one psychology lab, and 60 of 81 planned publications (74%) published after six retreats, where research students were 18 of 112 attendees.", "paper_ids": ["29177187", "39218864"]},
+  {"statement": "Qualitative and reflective accounts describe accountability, flow-like writing, valued peer feedback and increased scholarly productivity, from 4 to 14 participants each.", "paper_ids": ["31345510", "23937950"]},
+  {"statement": "Writing confidence appears only as an aim or a suggested benefit (a virtual writing community for 20 master's and PhD students, a retreat series, a dictation programme); the two papers without an open full text were judged on their abstracts.", "paper_ids": ["40915763", "39218864", "23937950"]}
+ ],
+ "agreement": "The papers agree that group writing formats are valued and coincide with more writing output or wellbeing [37887691][34641947][29177187][39218864]. They are heterogeneous in format (weekly peer groups, multi-day retreats, a dictation programme with supervisor-led teams), in participants (often mixed with academics or master's students) and in outcomes, and only one has a control group [37887691]. Several programmes were led by a facilitator or the lab director rather than by peers [29177187][23937950].",
+ "gaps": [
+  "No study measured writing confidence or self-efficacy with a validated scale before and after a peer writing group.",
+  "Only one controlled comparison, and it compares with a waitlist, not with structured individual writing.",
+  "Doctoral students are often a minority in mixed groups with academics, without separate results.",
+  "Long-term effects (thesis completion, time to degree) are not reported."
+ ],
+ "next_steps": [
+  "Search education databases (ERIC, Scopus, Web of Science); PubMed mainly covers health-related doctoral programmes.",
+  "Check the 11 studies in the 2025 scoping review on writing support for nursing and midwifery doctoral students (excluded here as a review).",
+  "Read the full texts of the two abstract-only papers, which may report confidence results.",
+  "Consider the questionnaire validated for writing group interventions (excluded here) as an outcome measure."
+ ]
+}

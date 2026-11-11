@@ -1,0 +1,29 @@
+{
+ "framework": "PICO",
+ "elements": [
+  { "key": "P", "text": "Doctoral (PhD) students and other postgraduate research students" },
+  { "key": "I", "text": "Peer writing groups: writing groups, circles, retreats or peer feedback on academic writing" },
+  { "key": "C", "text": "Working alone or usual supervision (no group)" },
+  { "key": "O", "text": "Writing confidence or self-efficacy; also productivity and writing experience" }
+ ],
+ "criteria": [
+  { "label": "Research students", "description": "Participants are doctoral or other postgraduate research students (or the results for them are reported separately)" },
+  { "label": "Peer writing group", "description": "The study concerns a group-based peer writing activity: a writing group, circle, retreat, boot camp or structured peer feedback on writing" },
+  { "label": "Writing outcome", "description": "An outcome about writing is reported: confidence, self-efficacy, productivity, quality or the students' experience of writing" },
+  { "label": "Original study", "description": "Primary research or an evaluation with data (quantitative, qualitative or mixed); not an editorial, opinion piece or literature review" }
+ ],
+ "blocks": [
+  { "label": "Research students", "terms": ["\"doctoral student*\"[tiab]", "\"PhD student*\"[tiab]", "\"doctoral candidate*\"[tiab]", "\"graduate student*\"[tiab]", "postgraduate*[tiab]", "\"research student*\"[tiab]"] },
+  { "label": "Writing groups", "terms": ["\"writing group*\"[tiab]", "\"writing retreat*\"[tiab]", "\"peer writing\"[tiab]", "\"writing circle*\"[tiab]", "\"thesis writing\"[tiab]", "\"writing support\"[tiab]"] }
+ ],
+ "fields": [
+  { "label": "Setting and country", "description": "university, discipline and country", "type": "text" },
+  { "label": "Design", "description": "study design, e.g. pre-post survey, qualitative interviews, mixed methods, controlled comparison", "type": "text" },
+  { "label": "Participants", "description": "number and type of students (e.g. 24 doctoral nursing students)", "type": "text" },
+  { "label": "Group format", "description": "what the group did, how often and for how long", "type": "text" },
+  { "label": "Comparison", "description": "comparison group if any (working alone, usual supervision), else 'none'", "type": "text" },
+  { "label": "Confidence / self-efficacy result", "description": "the reported effect on writing confidence or self-efficacy, with numbers where given", "type": "text" },
+  { "label": "Other writing outcomes", "description": "productivity, quality, wellbeing or experience, as reported", "type": "text" }
+ ],
+ "notes": "Few controlled comparisons are likely: most studies of writing groups are single-group evaluations or qualitative, so 'compared with working alone' may only be answerable indirectly. PubMed covers mostly health-related doctoral programmes; education databases (ERIC, Scopus) are needed for a full review. Check whether master's research students should count as research students."
+}

@@ -4,6 +4,7 @@ const paths = {
   menu: ["M4 6h16M4 12h16M4 18h16"],
   pause: ["M8 5v14M16 5v14"],
   play: ["m7 4 13 8-13 8Z"],
+  scan: ["M13 2 4 14h7l-1 8 9-12h-7l1-8Z"],
   "chevron-left": ["m15 5-7 7 7 7"],
   info: ["M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z", "M12 11v6M12 7v.1"],
   general: ["M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"],

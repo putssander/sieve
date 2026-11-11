@@ -48,8 +48,8 @@ export async function pmCount(q) {
   return { count: Number(j.esearchresult.count), warnings: j.esearchresult.warninglist, translation: j.esearchresult.querytranslation };
 }
 
-export async function pmIds(q, retmax = 10000, retstart = 0) {
-  const j = await eutils("esearch.fcgi", { term: q, retmode: "json", retmax, retstart });
+export async function pmIds(q, retmax = 10000, retstart = 0, sort = "") {
+  const j = await eutils("esearch.fcgi", { term: q, retmode: "json", retmax, retstart, ...(sort ? { sort } : {}) });
   return j.esearchresult.idlist || [];
 }
 
@@ -65,6 +65,14 @@ export async function europePmcSearch(query, pageSize = 5) {
   const r = await fetch(`https://www.ebi.ac.uk/europepmc/webservices/rest/search?format=json&resultType=core&pageSize=${pageSize}&query=${encodeURIComponent(query)}`);
   if (!r.ok) throw new Error(`Europe PMC HTTP ${r.status}`);
   return (await r.json()).resultList?.result || [];
+}
+
+// Same search with the total hit count (for the evidence scan).
+export async function europePmcPage(query, pageSize = 100) {
+  const r = await fetch(`https://www.ebi.ac.uk/europepmc/webservices/rest/search?format=json&resultType=core&pageSize=${Math.min(1000, pageSize)}&query=${encodeURIComponent(query)}`);
+  if (!r.ok) throw new Error(`Europe PMC HTTP ${r.status}`);
+  const j = await r.json();
+  return { count: Number(j.hitCount || 0), results: j.resultList?.result || [] };
 }
 
 // PMID for a DOI ("" when PubMed does not have it, e.g. preprints).

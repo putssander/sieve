@@ -12,12 +12,17 @@ import * as fulltext from "./views/fulltext.js";
 import * as screening from "./views/screening.js";
 import * as extraction from "./views/extraction.js";
 import * as report from "./views/report.js";
+import * as scan from "./views/scan.js";
 import { pageHelpButton } from "./views/pagehelp.js";
 import { getVersion, versionText } from "./version.js";
 import * as guide from "./views/guide.js";
 import * as methods from "./views/methods.js";
 import { stageIcon } from "./icons.js";
+import { setRoute } from "./disclosure.js";
 import { sieveLogo } from "./brand.js";
+
+// The quick scan sits beside the eight steps and writes into the same project fields.
+export const SCAN = { id: "scan", n: 0, label: "Quick scan", sub: "question → cited answer", view: scan };
 
 export const STEPS = [
   { id: "protocol", n: 1, label: "Protocol", sub: "question, purpose, criteria", view: protocol },
@@ -80,6 +85,10 @@ function renderSide() {
   };
   if (current && parts[1] === "p") {
     content.append(h("div", { class: "pname", title: current.name }, current.name));
+    const done = !!current.scan?.summary;
+    content.append(h("nav", { class: "steps-nav scan-nav", "aria-label": "Quick scan" }, h("a", { href: `#/p/${current.id}/scan`, class: parts[3] === "scan" ? "active" : "" },
+      h("span", { class: `num ${done ? "done" : current.scan ? "part" : ""}` }, stageIcon("scan")),
+      h("span", { class: "lbl" }, h("span", { class: "stage-name" }, SCAN.label), h("small", {}, SCAN.sub)))));
     const nav = h("nav", { class: "steps-nav" });
     for (const s of STEPS) {
       const st = status(current, s.id);
@@ -122,15 +131,16 @@ async function route() {
         current = await loadProject(parts[2]);
         if (!current) { toast("Project not found", "err"); location.hash = "#/"; return; }
       }
-      const step = STEPS.find(s => s.id === parts[3]) || STEPS[0];
+      const step = parts[3] === "scan" ? SCAN : STEPS.find(s => s.id === parts[3]) || STEPS[0];
       renderSide();
       document.title = `${step.label} · ${current.name}`;
       m.append(h("header", { class: "page-head" }, h("div", { class: "page-tools" },
-        h("a", { class: "btn ghost sm", href: `#/guide/${step.id}` }, "What to expect"),
+        step !== SCAN && h("a", { class: "btn ghost sm", href: `#/guide/${step.id}` }, "What to expect"),
         h("a", { class: "btn ghost sm", href: `#/methods/${step.id}`, title: "accepted method for this step, with sources, and what Sieve does" }, "Method"), pageHelpButton(ctx, step.id)),
-        h("div", { class: "kicker" }, `Step ${step.n} of ${STEPS.length}`), h("h1", { class: "stage-heading" }, stageIcon(step.id), step.label)));
+        h("div", { class: "kicker" }, step === SCAN ? "Evidence scan · AI-assisted" : `Step ${step.n} of ${STEPS.length}`), h("h1", { class: "stage-heading" }, stageIcon(step.id), step.label)));
+      setRoute(current.protocol.review_type);
       await step.view.render(m, ctx);
-      const next = STEPS[STEPS.indexOf(step) + 1];
+      const next = step === SCAN ? null : STEPS[STEPS.indexOf(step) + 1];
       if (next) m.append(h("div", { class: "next" }, h("a", { class: "btn", href: `#/p/${current.id}/${next.id}` }, `Next: ${next.label} →`)));
     } else if (parts[1] === "guide") {
       renderSide();

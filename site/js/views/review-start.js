@@ -4,7 +4,7 @@ import { stageIcon } from "../icons.js";
 import { disclosure } from "../disclosure.js";
 import { PURPOSES, REVIEW_TYPES, QUESTION_EXAMPLES, suggestedType } from "../review-plan.js";
 
-export function reviewStarter({ initial = {}, home = false, resumeHref = "", walkthrough = null, onChange = () => {}, onStart } = {}) {
+export function reviewStarter({ initial = {}, home = false, resumeHref = "", walkthrough = null, onChange = () => {}, onStart, onScan } = {}) {
   const first = QUESTION_EXAMPLES[0];
   const initialIndex = QUESTION_EXAMPLES.findIndex(e => e.id === initial.exampleId || e.question === initial.question);
   let index = Math.max(0, initialIndex), edited = false, timer = null, destroyed = false;
@@ -174,7 +174,15 @@ export function reviewStarter({ initial = {}, home = false, resumeHref = "", wal
         const button = e.currentTarget; button.disabled = true;
         try { await onStart?.({ ...draft, question: question.value.trim() }); }
         catch (err) { toast(err.message, "err"); button.disabled = false; }
-      }, "primary"), h("span", { class: "small muted" }, "Refine your choices in step 1.")));
+      }, "primary"),
+      onScan && btn([stageIcon("scan"), "Quick scan first"], async e => {
+        pause();
+        if (!question.value.trim()) { question.focus(); question.reportValidity(); return; }
+        const button = e.currentTarget; button.disabled = true;
+        try { await onScan({ ...draft, question: question.value.trim() }); }
+        catch (err) { toast(err.message, "err"); button.disabled = false; }
+      }, "scan-start"),
+      h("span", { class: "small muted" }, onScan ? "A quick scan gives a cited answer from open sources in about an hour; continue it as a full review any time." : "Refine your choices in step 1.")));
     if (home) {
       const comparison = h("details", { class: "home-type-comparison", open: compareOpen },
         h("summary", {}, "Compare review types & methods", stageIcon("chevron")), fullPlan, methodGuidance);

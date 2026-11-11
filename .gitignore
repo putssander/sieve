@@ -12,3 +12,6 @@ __pycache__/
 *.pyc
 .DS_Store
 .env
+
+# Example-scan work files: prompts can contain full texts (not ours to publish); only the answers are kept.
+examples/scans/*/*.prompt.txt

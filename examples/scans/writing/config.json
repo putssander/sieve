@@ -1,0 +1,8 @@
+{
+ "caps": {
+  "pubmed": 30,
+  "europepmc": 10
+ },
+ "model": "claude-opus-5-5 (copy-paste)",
+ "date": "2026-11-10"
+}

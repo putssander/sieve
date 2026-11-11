@@ -87,7 +87,7 @@ export function backendPicker(onchange) {
 //   build(items) -> {prompt, schema, name}     // prompt for 1..n items (n>1 only for copy-paste batches)
 //   save(id, json, run)                        // store one result
 //   done()                                     // re-render after saving
-//   runName: suggested name, batchable: bool, attachHint: bool
+//   runName: suggested name, batchable: bool, batchSize: items per copy-paste prompt, attachHint: bool
 // }
 export function runPanel(task) {
   const b = activeBackend();
@@ -144,7 +144,7 @@ function apiPanel(task, b, runName) {
 
 // Copy-paste route: one prompt per batch of items; the answer JSON is pasted back.
 function chatPanel(task, b, runName) {
-  const size = task.batchable === false ? 1 : Math.max(1, Number(b.batch) || 5);
+  const size = task.batchable === false ? 1 : Math.max(1, Number(task.batchSize || b.batch) || 5);
   const chunks = [];
   for (let i = 0; i < task.items.length; i += size) chunks.push(task.items.slice(i, i + size));
   let idx = 0, attach = false;
@@ -186,7 +186,7 @@ function chatPanel(task, b, runName) {
           } catch (e) { toast(e.message, "err"); }
         }, "primary"))),
       ),
-      task.attachHint && h("label", { class: "check" }, h("input", { type: "checkbox", checked: attach, onchange: e => { attach = e.target.checked; render(); } }), " I will attach the PDFs in the chat"),
+      ...(task.attachHint ? [h("label", { class: "check" }, h("input", { type: "checkbox", checked: attach, onchange: e => { attach = e.target.checked; render(); } }), " I will attach the PDFs in the chat")] : []),   // native append would print "undefined"
     );
   }
   render();

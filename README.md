@@ -43,6 +43,25 @@ data sharing and browser storage, and distinguishes the local PDF helper from a 
 Its optional cost planner uses the researcher's own token counts and provider rates; it makes no API calls
 and does not set a spending limit.
 
+## Quick scan: from a question to a cited answer
+
+*Quick scan first* on the home page (or **Quick scan** above the steps in any project) runs a short, AI-assisted
+evidence scan on one page, each stage with a worked example and the AI suggestion to check:
+**plan** (criteria, PubMed blocks and data fields from the question) → **search** (PubMed and Europe PMC preprints /
+PMC live, the most relevant records, duplicates linked) → **screen** (every title/abstract per criterion, with quotes)
+→ **full texts** (open access) → **extract** (values with quotes) → **summary** (answer with citations, the PRISMA
+flow, inclusion/exclusion per criterion and a limitations box written from what was actually done).
+It works with copy-paste, an API key or a local model. Everything is saved in the normal project fields, so
+*Continue as a scoping / systematic review* opens the eight steps with the work already in place.
+It is labelled an evidence scan, not a systematic review (open databases, one AI screener, open-access texts).
+
+**Example scans with recorded answers** (home page → *See an example scan*, or *Quick scan first* on an example
+question): every AI answer is stored with a fingerprint of its exact input, so the scan plays through without a key
+or a call (*Play the example*). Change the question, a criterion, a field or the search terms and only the affected
+answers are marked out of date and go to your own AI route. Record a new example with
+`node tools/build-scan-example.mjs <example-id>` (it drives the app in headless Chrome and writes the prompts that
+still need an answer; only ids, counts and answers are published, no abstracts or full texts).
+
 ## Try it, and the methods behind it
 
 * **Example project** (home page → *Try the example project*, or *Try … in the example project* on any tour page):
@@ -115,9 +134,9 @@ IndexedDB; export the project file to move it or share it with a co-reviewer.
 | 3 | Records | import PubMed / RIS / CSV / Excel / PMIDs, one export per database | automatic deduplication after every import following the Bramer method (DOI/PMID, then author/year/title/journal/volume/issue/normalised pages from strict to loose; first import kept, links not deletions; [docs/deduplication.md](docs/deduplication.md)), a review list for the cases the method checks by hand, RIS and MEDLINE/.nbib exports, overlap per database (PRISMA-S), **recall per database**: every export is checked against the validation and hold-out articles, which validates each translated string; missing abstracts from PubMed |
 | 4 | Verify | fix flagged records | Crossref: DOI ↔ title ↔ year, publication type, supplement/erratum, shared wrong links, DOI by title |
 | 5 | Full text | retrieve open copies, download remaining PDFs through your library, add PDFs or a folder, paste text | Europe PMC, PubMed Central, arXiv and Unpaywall PDF retrieval; optional local helper; HTML manual-download page and CSV worklist; PDF matching by DOI/title |
-| 6 | Screening | decide per record (title/abstract, then full text) | model runs per criterion with quotes, quote check against the source, priority sorting, κ / sensitivity vs. you, Excel export |
+| 6 | Screening | decide per record (title/abstract, then full text) | model runs per criterion with quotes, quote check against the source, priority sorting, κ / sensitivity vs. you, inclusion/exclusion chart per criterion, Excel export |
 | 7 | Extraction | import the form, verify cells | values + quotes per field, core-only rule by year, "accept where models agree", Excel in form layout, pivot tables, **Check the runs** (completeness, quotes verified verbatim in the full text, core-only rule, agreement between runs); full texts are fitted to the prompt without losing the results (references dropped, results paragraphs kept); start here directly with an already screened list ("screened outside Sieve") |
-| 8 | Report | – | PRISMA 2020 counts + SVG, draft methods paragraph, search appendix, project export |
+| 8 | Report | – | PRISMA 2020 counts + SVG, inclusion/exclusion per criterion, draft methods paragraph, search appendix, project export |
 
 ## Local models
 

@@ -1,0 +1,48 @@
+{
+ "key": "147xnknoaqo",
+ "date": "2026-11-10",
+ "pubmed": {
+  "query": "(\"doctoral student*\"[tiab] OR \"PhD student*\"[tiab] OR \"doctoral candidate*\"[tiab] OR \"graduate student*\"[tiab] OR postgraduate*[tiab] OR \"research student*\"[tiab]) AND (\"writing group*\"[tiab] OR \"writing retreat*\"[tiab] OR \"peer writing\"[tiab] OR \"writing circle*\"[tiab] OR \"thesis writing\"[tiab] OR \"writing support\"[tiab])",
+  "count": 32,
+  "ids": [
+   "35010522",
+   "38235745",
+   "31345510",
+   "40666662",
+   "36701127",
+   "40915763",
+   "39045436",
+   "39299022",
+   "34641947",
+   "25269934",
+   "33549957",
+   "35154954",
+   "29177187",
+   "39522339",
+   "39218864",
+   "36287276",
+   "41405105",
+   "35002339",
+   "42719571",
+   "42382453",
+   "27965348",
+   "41100313",
+   "42824343",
+   "37887691",
+   "27455365",
+   "42808242",
+   "23937950",
+   "41144885",
+   "41478703",
+   "41691307"
+  ]
+ },
+ "europepmc": {
+  "query": "(TITLE_ABS:\"doctoral student*\" OR TITLE_ABS:\"PhD student*\" OR TITLE_ABS:\"doctoral candidate*\" OR TITLE_ABS:\"graduate student*\" OR TITLE_ABS:postgraduate* OR TITLE_ABS:\"research student*\") AND (TITLE_ABS:\"writing group*\" OR TITLE_ABS:\"writing retreat*\" OR TITLE_ABS:\"peer writing\" OR TITLE_ABS:\"writing circle*\" OR TITLE_ABS:\"thesis writing\" OR TITLE_ABS:\"writing support\") AND (SRC:PPR OR SRC:PMC)",
+  "count": 2,
+  "ids": [
+   "PPR:PPR1358162",
+   "PMC:PMC9264254"
+  ]
+ }
+}

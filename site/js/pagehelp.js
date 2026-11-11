@@ -44,6 +44,7 @@ export const PAGES = {
     title: "Extraction", purpose: "Extract data per included study with an imported form (fields, groups, answer options), with verbatim evidence quotes.",
     schema: obj({ answer: ANSWER, instructions: str("improved general extraction instructions, or empty to keep them"), notes: NOTES }),
   },
+  scan: { title: "Quick scan", purpose: "A quick, AI-assisted evidence scan from a question: plan, PubMed + Europe PMC search, AI title/abstract screening, open-access full texts, extraction and a cited summary with its limitations. It can continue as a scoping or systematic review in the eight steps." },
   report: { title: "Report", purpose: "PRISMA 2020 counts and diagram, a draft methods paragraph, the search appendix and the project export." },
 };
 
@@ -111,6 +112,13 @@ export function pageSnapshot(step, p) {
         ...(ex.fields || []).slice(0, 80).map(f => `- ${f.group ? `[${f.group}] ` : ""}${f.label}${f.core ? " (core)" : ""}: ${cut(f.description || "", 160)}${f.options?.length ? ` · options: ${f.options.join(" / ")}` : ""}`));
       break;
     }
+    case "scan":
+      out.push(...protocolShort(), `Criteria: ${p.criteria.map(c => `${c.label} (${c.description})`).join("; ") || "(none)"}`,
+        `Search blocks: ${(S.blocks || []).map(b => `${b.label}: ${b.terms.join(" OR ")}`).join(" AND ") || "(none)"}`,
+        `Data fields: ${(p.extraction?.fields || []).map(f => f.label).join("; ") || "(none)"}`,
+        `${p.records.length} records, ${Object.keys(p.screening?.runs || {}).length} screening runs, ${Object.values(p.fulltext || {}).filter(f => !f.failed).length} full texts.`,
+        p.scan?.summary ? `Summary answer: ${cut(p.scan.summary.answer, 800)}` : "No summary yet.");
+      break;
     case "report":
       out.push(`${p.records.length} records, ${p.records.filter(r => r.duplicate_of).length} duplicates, ${Object.keys(p.screening?.human || {}).length} screened by a human.`);
       break;

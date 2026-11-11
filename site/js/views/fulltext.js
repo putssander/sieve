@@ -83,7 +83,7 @@ function pickFolder() {
 }
 
 // Every open route a browser can reach, in order; the local helper adds publisher pages and PDFs on hosts without CORS.
-async function fetchAuto(ctx, recs, prog, helper) {
+export async function fetchAuto(ctx, recs, prog, helper) {
   const p = ctx.project;
   let n = 0;
   const save = async (r, text, method, url) => {

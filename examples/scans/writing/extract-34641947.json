@@ -1,0 +1,9 @@
+{"id": "34641947", "fields": {
+ "setting_and_country": {"value": "Graduate (master's) psychology programme; country NR in the text", "quote": "This quasi-experimental study involved 20 graduate students of psychology—sixteen female and four male."},
+ "design": {"value": "Quasi-experimental one-group pretest-posttest with double pretest and a delayed posttest", "quote": "This study was a quasi-experimental study with a one-group pretest-posttest design using double pretests."},
+ "participants": {"value": "20 master's thesis students in psychology (16 female, 4 male; mean age 27.5)", "quote": "The students were working on their thesis in the third (n = 10), fourth (n = 8), or fifth (n = 2) semester."},
+ "group_format": {"value": "GROWTH: one training session (SMART goals, BASE habits) plus four facilitated small-group sessions twice a week over 15 days (16.5 h in total), with daily reflective journals", "quote": "The GROWTH program consisted of one training session followed by four sessions of writing groups. The writing groups session were conducted twice a week."},
+ "comparison": {"value": "none (the interval between the two pretests serves as a control period)", "quote": "the condition between Pretest 1 and Pretest 2 could be regarded as a control condition"},
+ "confidence_self_efficacy": {"value": "NR", "quote": ""},
+ "other_writing_outcomes": {"value": "Thesis procrastination fell from 72.3 (pretest 2) to 67.3 after the programme and 62.0 two weeks later; F(2.065, 39.226) = 7.854, p = 0.001", "quote": "there was a significant effect of writing group program on procrastination F(2.065, 39.226) = 7.854, p = 0.001"}},
+ "notes": "Confidence was not measured; the authors cite earlier work that writing groups improve confidence. Small single-group sample; the authors call for a control group."}

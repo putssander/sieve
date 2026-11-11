@@ -228,10 +228,116 @@ await click("Try screening");
 for (let i = 0; i < 60 && !/example-llm-screening/.test(await js(`return location.hash`)); i++) await sleep(500);
 await sleep(800);
 check(/example-llm-screening\/screening/.test(await js(`return location.hash`)), "tour: 'Try screening' opens that step of the example project");
-await send("Page.navigate", { url: `${BASE}/#/methods/extraction` }); await sleep(1000);
-const mt = await js(`return document.body.textContent`);   // steps are collapsible: include folded sections
-check(await js(`return document.getElementById("m-extraction")?.open === true`) && /Methods & guidance/.test(mt) && /PROBAST\+AI/.test(mt) && /Waffenschmidt/.test(mt) && /Bramer/.test(mt), "methods page: guidance with sources per step");
-await js(`const s = await import("/js/store.js"); await s.deleteProject("example-llm-screening"); return true`);
+
+// ---------------------------------------------------------------- quick scan, worked examples, inclusion/exclusion flow
+{
+  const before = errors.length;
+  await send("Page.navigate", { url: `${BASE}/#/p/example-llm-screening/scan` }); await sleep(2500);
+  const gate = await js(`return { stages: document.querySelectorAll(".scan-stage").length, approve: /approve it/.test(document.getElementById("scan-plan")?.innerText || "") }`);
+  await click("I checked the plan"); await sleep(2500);
+  const sc = await js(`return { stages: document.querySelectorAll(".scan-stage").length, calib: !!document.querySelector("#scan-screen .runpanel"), side: !!document.querySelector(".scan-nav a.active") }`);
+  console.log("   example project as scan:", JSON.stringify(gate), JSON.stringify(sc));
+  check(gate.stages === 1 && gate.approve && sc.stages === 3 && sc.calib && sc.side && errors.length === before, `quick scan: plan approval first, then search, then the AI run for records without an AI answer${errors.length > before ? " ERRORS: " + errors.slice(before).join(" / ") : ""}`);
+  await send("Page.navigate", { url: `${BASE}/#/p/example-llm-screening/screening` }); await sleep(2000);
+  check(await js(`return !!document.querySelector(".step-intro .step-example dd") && !!document.querySelector(".criteria-flow .flow-row")`), "screening: worked example under the intro and the inclusion/exclusion chart");
+  await send("Page.navigate", { url: `${BASE}/#/p/example-llm-screening/report` }); await sleep(1500);
+  check(await js(`return !!document.querySelector(".criteria-flow") && !!document.querySelector(".prisma svg")`), "report: PRISMA diagram and inclusion/exclusion per criterion");
+
+  await js(`const s = await import("/js/store.js"); const st = s.getSettings(); st.activeBackend = (st.backends.find(b => b.kind === "manual") || st.backends[0]).id; s.setSettings(st); return true`);
+  await send("Page.navigate", { url: `${BASE}/#/` }); await sleep(1500);
+  await click("Quick scan first");
+  for (let i = 0; i < 20 && !/\/scan$/.test(await js(`return location.hash`)); i++) await sleep(300);
+  await sleep(1000);
+  const scanHash = await js(`return location.hash`);
+  check(/#\/p\/p-[\w]+\/scan$/.test(scanHash), `home: 'Quick scan first' opens a new scan (${scanHash})`);
+  const plan = { framework: "PICO", elements: [{ key: "P", text: "doctoral students" }, { key: "I", text: "peer writing groups" }, { key: "C", text: "working alone" }, { key: "O", text: "writing confidence" }],
+    criteria: [{ label: "Doctoral students", description: "participants are doctoral students" }, { label: "Peer writing group", description: "a peer writing group is studied" }],
+    blocks: [{ label: "Doctoral", terms: ['"doctoral student*"[tiab]', '"PhD student*"[tiab]'] }, { label: "Writing groups", terms: ['"writing group*"[tiab]'] }],
+    fields: [{ label: "Design", description: "study design", type: "text" }], notes: "check the comparison" };
+  await js(`const t = document.querySelector("#scan-plan .chat textarea.answer"); t.value = ${JSON.stringify("Here is the plan: " + JSON.stringify(plan))}; return true`);
+  await click("3 · Save answer"); await sleep(1500);
+  const after = await js(`const s = await import("/js/store.js"); const p = await s.loadProject(location.hash.split("/")[2]);
+    return { criteria: p.criteria.length, blocks: p.search.blocks.length, fields: p.extraction.fields.length, plan: !!document.querySelector(".scan-plan"), search: !!document.getElementById("scan-search") }`);
+  await click("I checked the plan"); await sleep(1500);
+  const approved = await js(`return !!document.getElementById("scan-search") && !!document.querySelector(".scan-press")`);
+  console.log("   new scan after plan:", JSON.stringify(after), "approved → search + PRESS:", approved);
+  check(after.criteria === 2 && after.blocks === 2 && after.fields === 1 && after.plan && !after.search && approved, "quick scan: pasted plan fills criteria, blocks and fields; the search opens only after your approval, with the PRESS check");
+  await js(`const s = await import("/js/store.js"); await s.deleteProject(location.hash.split("/")[2]); return true`);
+}
+
+// ---------------------------------------------------------------- example scan with recorded answers: replay, then edit → new call
+{
+  const before = errors.length;
+  await send("Page.navigate", { url: `${BASE}/#/` }); await sleep(1500);
+  await click("See an example scan"); await sleep(800);
+  await js(`document.querySelector(".scan-example-pick")?.click(); return 1`);
+  for (let i = 0; i < 20 && !/\/scan$/.test(await js(`return location.hash`)); i++) await sleep(300);
+  await sleep(1500);
+  check(await js(`return !!document.querySelector(".scan-cache") && /Use the example answer/.test(document.getElementById("scan-plan")?.innerText || "")`), "example scan: picked on the home page, plan offers the recorded answer");
+  const playOn = async () => { await js(`[...document.querySelectorAll(".scan-cache button")].find(b => /^Play/.test(b.textContent.trim()))?.click(); return 1`); await sleep(2500); };
+  await playOn();
+  check(await js(`return /approve it/.test(document.getElementById("scan-plan")?.innerText || "") && !document.getElementById("scan-search")`), "example scan: play stops at the plan for your approval (no search before the protocol)");
+  await click("I checked the plan"); await sleep(1500);
+  await playOn();
+  for (let i = 0; i < 60 && !(await js(`return !!document.querySelector(".scan-check-card")`)); i++) await sleep(1000);
+  check(await js(`return /Your screening/.test(document.querySelector(".scan-check-head")?.innerText || "") && !document.querySelector(".scan-check-ai") && document.querySelectorAll(".scan-mode input").length === 2`), "example scan: you screen blind by default (AI as independent second reviewer), the faster mode is a choice");
+  // Decide every record as the AI suggested (so the recorded extraction and summary still fit).
+  const decided = await js(`const a = await import("/js/app.js"); let n = 0;
+    for (let i = 0; i < 80; i++) {
+      const card = document.querySelector(".scan-check-card"); if (!card) break;
+      const rid = card.querySelector(".muted.small").textContent.split(" · ")[0].trim();
+      const p = a.ctx.project; const ai = Object.values(p.screening.runs).map(R => R.results?.[rid]).find(Boolean);
+      const btns = [...card.querySelectorAll("button")];
+      if (ai.decision === "Exclude") {
+        btns.find(b => b.textContent.startsWith("Exclude")).click();
+        const k = p.criteria.findIndex(c => ai.criteria?.[c.id] === "No");
+        const reasons = [...card.querySelectorAll(".scan-check-reasons button")];
+        (k >= 0 ? reasons[k] : reasons[reasons.length - 1]).click();
+      } else btns.find(b => b.textContent.startsWith(ai.decision)).click();
+      n++; await new Promise(r => setTimeout(r, 30));
+    }
+    return n;`);
+  await sleep(2000);
+  const afterScreen = await js(`const a = await import("/js/app.js"); const p = a.ctx.project; const h = Object.values(p.screening.human);
+    return { human: h.length, blind: h.filter(x => x.blind).length, kappa: (document.getElementById("scan-screen")?.innerText.match(/κ = ([0-9.]+)/) || [])[1] }`);
+  console.log("   your screening:", decided, JSON.stringify(afterScreen));
+  check(afterScreen.human === 32 && afterScreen.blind === 32 && afterScreen.kappa === "1.00", "example scan: 32 blind decisions by you, agreement with the AI (κ) shown");
+  await playOn();
+  for (let i = 0; i < 120 && !(await js(`return /Your check ·/.test(document.getElementById("scan-extract")?.innerText || "")`)); i++) await sleep(1000);
+  const checkedPapers = await js(`let n = 0; for (let i = 0; i < 20; i++) { const b = [...document.querySelectorAll("#scan-extract button")].find(x => x.textContent.startsWith("Values checked")); if (!b) break; b.click(); n++; await new Promise(r => setTimeout(r, 100)); } return n;`);
+  await sleep(2000);
+  await playOn(); await sleep(1500);
+  const sum = await js(`return { draft: /approve it/.test(document.getElementById("scan-summary")?.innerText || ""), answer: !!document.querySelector(".scan-answer") }`);
+  check(checkedPapers === 7 && sum.answer && sum.draft, `example scan: you check the values of all 7 papers; the recorded summary appears as a draft for your approval (${checkedPapers} checked)`);
+  await click("I checked the summary"); await sleep(2000);
+  const fin = await js(`const t = document.body.innerText; return { approved: /Checked and approved by you/.test(t), disclosure: document.querySelectorAll(".scan-disclosure li").length, routes: document.querySelectorAll(".scan-deeper-route").length, rec: document.querySelector(".scan-deeper-rec")?.innerText,
+    limits: document.querySelector(".scan-limits")?.innerText.includes("screened every record independently of the AI") }`);
+  console.log("   finished scan:", JSON.stringify(fin));
+  check(fin.approved && fin.disclosure >= 4 && fin.routes === 3 && /systematic review/.test(fin.rec || "") && fin.limits, "example scan: approved summary, AI use disclosure, limitations and go-deeper advice per route");
+  // Recorded quotes are found word for word in the source.
+  const q = await js(`const s = await import("/js/store.js"); const u = await import("/js/util.js"); const sc = await import("/js/views/screening.js"); const a = await import("/js/app.js");
+    const p = a.ctx.project; const bad = []; let n = 0;
+    for (const R of Object.values(p.screening.runs)) for (const [rid, x] of Object.entries(R.results)) { const r = p.records.find(y => y.rid === rid); const src = sc.sourceText(p, r, "");
+      for (const f of x.failed_criteria || []) { n++; if (!u.quoteInSource(f.evidence_quote, src)) bad.push(rid + ": " + f.evidence_quote.slice(0, 50)); } }
+    for (const R of Object.values(p.extraction.runs)) for (const [rid, x] of Object.entries(R.results)) { const r = p.records.find(y => y.rid === rid); const src = sc.sourceText(p, r, await s.getText(p.id, rid));
+      for (const [k, v] of Object.entries(x.fields || {})) if (v.quote) { n++; if (!u.quoteInSource(v.quote, src)) bad.push(rid + "/" + k + ": " + v.quote.slice(0, 50)); } }
+    return { n, bad };`);
+  console.log("   recorded quotes:", q.n, "not found:", JSON.stringify(q.bad));
+  check(q.n > 50 && q.bad.length === 0, "example scan: every recorded quote is found word for word in the source");
+  // The steps teach the official method for this review type.
+  const pid = await js(`return location.hash.split("/")[2]`);
+  await send("Page.navigate", { url: `${BASE}/#/p/${pid}/screening` }); await sleep(2000);
+  check(await js(`const b = document.querySelector(".method-box"); return !!b && /Systematic review/.test(b.innerText) && /MECIR C39/.test(b.innerText) && b.querySelectorAll("table.compare th").length >= 4`), "steps: Official method box with the rule, its source and the route comparison");
+  // Edit one criterion: your decisions and the AI suggestions are marked out of date.
+  await send("Page.navigate", { url: `${BASE}/#/p/${pid}/scan` }); await sleep(3000);
+  await js(`const a = await import("/js/app.js"); a.ctx.project.criteria[1].description += " (including online groups)"; await a.ctx.save(true); a.ctx.rerender(); return 1`);
+  await sleep(3000);
+  const edited = await js(`const t = document.getElementById("scan-screen")?.innerText || ""; return { yours: (t.match(/([0-9]+) of your decisions were made with an earlier/) || [])[1] }`);
+  console.log("   after editing a criterion:", JSON.stringify(edited));
+  check(edited.yours === "32", "example scan: editing a criterion marks your 32 decisions as made under earlier criteria");
+  check(errors.length === before, `example scan: no page errors${errors.length > before ? ": " + errors.slice(before).join(" / ") : ""}`);
+  await js(`const s = await import("/js/store.js"); await s.deleteProject(location.hash.split("/")[2]); return true`);
+}
 
 // ---------------------------------------------------------------- public site: no contact with this device unless asked
 const requests = [];

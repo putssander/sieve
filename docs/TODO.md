@@ -5,23 +5,21 @@ Priorities: **P1** next, **P2** soon, **P3** later. Methodological gaps come fro
 
 ## P1: next
 
-- [ ] **Commit and push the current work** after agreeing who edits the tour / home / methods page
-  (several files were changed in parallel on 10 Nov 2026).
 - [ ] **Local model presets** under Models & keys, each filling in the URL, showing the one-line CORS setting and
   testing the connection + model list:
-  - [ ] Ollama (`OLLAMA_ORIGINS=<site address>`, `http://localhost:11434/v1`)
-  - [ ] LM Studio (enable CORS in the server settings, `http://localhost:1234/v1`)
+  - [x] Ollama (`OLLAMA_ORIGINS=<site address>`, `http://localhost:11434/v1`) (connection card in Models & keys)
+  - [x] LM Studio (enable CORS in the server settings, `http://localhost:1234/v1`)
   - [ ] mlx-lm on a Mac (`mlx_lm.server`, `http://localhost:8080/v1`)
   - [ ] vLLM on a GPU server (allowed origins option; HTTPS needed when the page is HTTPS and the server is not localhost)
   - [ ] Colab: job file route as the default (export → `colab/sieve_colab.ipynb` → import results); explain why a
         live tunnel is not recommended
   - [ ] Explain the browser's permission prompt for this device (as for the local helper)
-- [ ] **Purpose first in step 1: "What do you want to know, and why?"** Choices such as answer a question /
+- [x] **Purpose first in step 1: "What do you want to know, and why?"** Choices such as answer a question /
   map a field / background for my study / inform a guideline / stay up to date suggest the review type
   (systematic, scoping, rapid, narrative), the question framework (PICO, PCC), the reporting checklist
   (PRISMA 2020, PRISMA-ScR) and which steps are required. Sources: Munn et al. 2018 (BMC Med Res Methodol
   18:143), Grant & Booth 2009 (Health Info Libr J 26:91-108).
-- [ ] **Evidence scan mode ("Question first."):** question on the main page → protocol and search drafted →
+- [x] **Evidence scan mode ("Question first."):** done as *Quick scan* (`#/p/<id>/scan`, site/js/scan.js); question on the main page → protocol and search drafted →
   PubMed + Europe PMC live → AI title/abstract screening → open-access full texts → extraction table with
   quotes → PRISMA counts, summary and an explicit limitations box (open databases only, one AI screener,
   open-access texts only). About an hour with an API key. Label it an AI-assisted evidence scan, not a
@@ -31,6 +29,14 @@ Priorities: **P1** next, **P2** soon, **P3** later. Methodological gaps come fro
   RoB 2, ROBINS-I (methods gap 1).
 - [ ] **Two-human screening mode**: independent, blinded decisions, conflict resolution, κ between humans
   (methods gap 2).
+
+- [x] Example scans with recorded answers (fingerprinted per input; edits → out of date → new call): "writing" recorded.
+- [ ] Record more example scans (e.g. `climate`, `medication`) with `node tools/build-scan-example.mjs <id>`.
+- [ ] Quick scan follow-ups:
+  a "check a sample of AI exclusions" step (e.g. 10 random exclusions shown for a human decision) before the summary;
+  an optional second AI screener with agreement shown in the scan.
+- [ ] Record IDs: records imported after a PubMed import get "highest PMID + 1", which looks like a real PMID;
+  use a prefix (e.g. `R1`) for records without their own identifier.
 
 ## P2: soon
 
@@ -84,3 +90,7 @@ Priorities: **P1** next, **P2** soon, **P3** later. Methodological gaps come fro
 - [x] Copy this page for ChatGPT on every step; Sieve GPT files
 - [x] Model lists from the provider instead of hardcoded models
 - [x] Methods & guidance page; reproducible example project with real example runs
+- [x] Quick scan (question → plan → PubMed + Europe PMC → AI screening → OA texts → extraction → cited summary),
+      continued as a scoping / systematic review in the same project
+- [x] Inclusion/exclusion chart per criterion (screening, report, scan) next to the PRISMA diagram
+- [x] A worked example under every step's one-line intro (from the workflow tour)

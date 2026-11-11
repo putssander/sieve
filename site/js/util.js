@@ -124,8 +124,15 @@ export const readText = f => f.text();
 export const readBuf = f => f.arrayBuffer();
 
 export async function copy(text) {
-  try { await navigator.clipboard.writeText(text); toast("Copied to clipboard"); }
-  catch { toast("Copy failed: select the text and copy manually", "warn"); }
+  try { await navigator.clipboard.writeText(text); toast("Copied to clipboard"); return; }
+  catch { /* no clipboard API outside https/localhost (e.g. a phone on http://192.168…): use a hidden field */ }
+  const ta = document.createElement("textarea");
+  ta.value = text; ta.setAttribute("readonly", ""); ta.style.cssText = "position:fixed;top:0;left:0;opacity:0;";
+  document.body.appendChild(ta); ta.select(); ta.setSelectionRange(0, text.length);
+  let ok = false;
+  try { ok = document.execCommand("copy"); } catch { /* unsupported */ }
+  ta.remove();
+  toast(ok ? "Copied to clipboard" : "Copy failed: select the text and copy manually", ok ? "ok" : "warn");
 }
 
 export function toast(msg, kind = "ok") {
